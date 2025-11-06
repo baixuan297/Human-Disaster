@@ -1,0 +1,68 @@
+[gd_resource type="Resource" script_class="KeyBindResource" load_steps=13 format=3 uid="uid://cny6q5wwsdtk6"]
+
+[ext_resource type="Script" uid="uid://kf1ylwvbw2of" path="res://resource/settings/KeyBindResource.gd" id="1_4xhed"]
+
+[sub_resource type="InputEventKey" id="InputEventKey_lhog8"]
+device = -1
+physical_keycode = 4194336
+
+[sub_resource type="InputEventKey" id="InputEventKey_1jkg3"]
+device = -1
+physical_keycode = 49
+unicode = 49
+
+[sub_resource type="InputEventKey" id="InputEventKey_rx35o"]
+device = -1
+physical_keycode = 50
+unicode = 50
+
+[sub_resource type="InputEventKey" id="InputEventKey_l3cpw"]
+device = -1
+physical_keycode = 4194326
+
+[sub_resource type="InputEventKey" id="InputEventKey_vspc4"]
+device = -1
+physical_keycode = 4194328
+
+[sub_resource type="InputEventKey" id="InputEventKey_n6laj"]
+device = -1
+physical_keycode = 32
+unicode = 32
+
+[sub_resource type="InputEventKey" id="InputEventKey_3jb2g"]
+device = -1
+physical_keycode = 83
+unicode = 115
+
+[sub_resource type="InputEventKey" id="InputEventKey_hqh7f"]
+device = -1
+physical_keycode = 87
+unicode = 119
+
+[sub_resource type="InputEventKey" id="InputEventKey_s0yso"]
+device = -1
+physical_keycode = 65
+unicode = 97
+
+[sub_resource type="InputEventKey" id="InputEventKey_64m1l"]
+device = -1
+physical_keycode = 68
+unicode = 100
+
+[sub_resource type="InputEventKey" id="InputEventKey_c4jsq"]
+device = -1
+physical_keycode = 4194325
+
+[resource]
+script = ExtResource("1_4xhed")
+DEFAULT_MOVE_RIGHT_KEY = SubResource("InputEventKey_64m1l")
+DEFAULT_MOVE_LEFT_KEY = SubResource("InputEventKey_s0yso")
+DEFAULT_MOVE_FORWARD_KEY = SubResource("InputEventKey_hqh7f")
+DEFAULT_MOVE_BACKWARD_KEY = SubResource("InputEventKey_3jb2g")
+DEFAULT_RUN_KEY = SubResource("InputEventKey_c4jsq")
+DEFAULT_CROUCH_KEY = SubResource("InputEventKey_l3cpw")
+DEFAULT_JUMP_KEY = SubResource("InputEventKey_n6laj")
+DEFAULT_FREELOOK_KEY = SubResource("InputEventKey_vspc4")
+DEFAULT_CHANGEPERSON_KEY = SubResource("InputEventKey_lhog8")
+DEFAULT_CHANGEWEAPON1_KEY = SubResource("InputEventKey_1jkg3")
+DEFAULT_CHANGEWEAPON2_KEY = SubResource("InputEventKey_rx35o")

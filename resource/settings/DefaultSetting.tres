@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="DefaultSettingResource" load_steps=2 format=3 uid="uid://cgav63h8osw17"]
+
+[ext_resource type="Script" uid="uid://vv6e83df7xgn" path="res://resource/settings/SettingResource.gd" id="1_svhpb"]
+
+[resource]
+script = ExtResource("1_svhpb")

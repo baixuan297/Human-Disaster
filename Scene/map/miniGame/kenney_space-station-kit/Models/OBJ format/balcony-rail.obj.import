@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://gq3714ppt01j"
+path="res://.godot/imported/balcony-rail.obj-926208075ff6e7b0ee6fa3c6df53e1f2.mesh"
+
+[deps]
+
+files=["res://.godot/imported/balcony-rail.obj-926208075ff6e7b0ee6fa3c6df53e1f2.mesh"]
+
+source_file="res://Scene/map/miniGame/kenney_space-station-kit/Models/OBJ format/balcony-rail.obj"
+dest_files=["res://.godot/imported/balcony-rail.obj-926208075ff6e7b0ee6fa3c6df53e1f2.mesh", "res://.godot/imported/balcony-rail.obj-926208075ff6e7b0ee6fa3c6df53e1f2.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

@@ -1,0 +1,56 @@
+[
+  {
+	"item_id": 201,
+	"item_name": "X-87",
+	"item_desc": "外星高科技",
+	"item_icon": "",
+	"max_stack": 1,
+	"item_type": "WEAPON",
+	"rarity": "LEGENDARY"
+  },
+  {
+	"item_id": 202,
+	"item_name": "Pistol",
+	"item_desc": "小手枪",
+	"item_icon": "",
+	"max_stack": 1,
+	"item_type": "WEAPON",
+	"rarity": "COMMON"
+  },
+  {
+	"item_id": 203,
+	"item_name": "MP7",
+	"item_desc": "冲锋枪",
+	"item_icon": "",
+	"max_stack": 1,
+	"item_type": "WEAPON",
+	"rarity": "UNCOMMON"
+  },
+  {
+	"item_id": 251,
+	"item_name": "能量子弹",
+	"item_desc": "给X-87的子弹",
+	"item_icon": "",
+	"max_stack": 99,
+	"item_type": "WEAPON",
+	"rarity": "RARE"
+  },
+  {
+	"item_id": 252,
+	"item_name": " 4.6x30mm子弹",
+	"item_desc": "给MP7的子弹",
+	"item_icon": "",
+	"max_stack": 999,
+	"item_type": "WEAPON",
+	"rarity": "COMMON"
+  },
+  {
+	"item_id": 253,
+	"item_name": "9mm子弹",
+	"item_desc": "给pistol的子弹",
+	"item_icon": "",
+	"max_stack": 99,
+	"item_type": "WEAPON",
+	"rarity": "COMMON"
+  }
+]

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Weapon_Resource" load_steps=2 format=3 uid="uid://dgrr26hc41c5q"]
+
+[ext_resource type="Script" uid="uid://b82rehlfggawy" path="res://resource/gun/weapon_resource.gd" id="1_bscsr"]
+
+[resource]
+script = ExtResource("1_bscsr")
+Weapon_name = "PISTOL"
+Current_Ammo = 10
+Reserve_Ammo = 30
+magazine = 10
+Max_Ammo = 30

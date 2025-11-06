@@ -1,0 +1,72 @@
+extends CanvasLayer
+
+@export var world : World
+
+@onready var sound_effect = $Control/Button_sound
+@onready var inimusic = $Control/music/Inimusic
+@onready var jugar = $Control/menu/Jugar
+@onready var ajuste = $Control/menu/Ajustes
+@onready var ayuda = $Control/menu/Ayuda
+@onready var credito = $Control/menu/Creditos
+@onready var salir = $Control/menu/Salir
+@onready var musicicon = $Control/music/musicicon
+@onready var main = $Control
+
+@onready var creditos_menu: Control
+@onready var option_menu: Control
+
+var loading_screen = preload("res://Scene/menu/loading.tscn")
+var option_menu_scene = preload("res://Scene/menu/option_menu.tscn")
+var creditos_menu_scene = preload("res://Scene/menu/creditos_menu.tscn")
+
+func on_back_option_menu():
+	main.visible = true
+	option_menu.queue_free()
+	
+func on_back_creditos_menu():
+	main.visible = true
+	creditos_menu.queue_free()
+
+func _on_jugar_mouse_entered():
+	sound_effect.play(0.0)
+
+func _on_ajustes_mouse_entered():
+	sound_effect.play(0.0)
+
+func _on_creditos_mouse_entered():
+	sound_effect.play(0.0)
+	
+func _on_ayuda_mouse_entered():
+	sound_effect.play(0.0)
+	
+func _on_salir_mouse_entered():
+	sound_effect.play(0.0)
+	
+func _on_jugar_pressed():
+	SceneManager.change_scene_to_file("res://Scene/menu/chosegamemode.tscn")
+
+func _on_ajustes_pressed():
+	main.visible = false
+	option_menu = option_menu_scene.instantiate()
+	option_menu.exit_option_menu.connect(on_back_option_menu)
+	add_child(option_menu)
+
+func _on_creditos_pressed():
+	main.visible = false
+	creditos_menu = creditos_menu_scene.instantiate()
+	creditos_menu.exit_creditos_menu.connect(on_back_creditos_menu)
+	add_child(creditos_menu)
+
+func _on_ayuda_pressed():
+	sound_effect.play(0.0)
+	OS.shell_open("https://desahuman.wuaze.com/?i=1")
+
+func _on_salir_pressed():
+	sound_effect.play(0.0)
+	get_tree().quit()
+	
+func _on_music_pressed():
+	if inimusic.is_playing():
+		inimusic.playing = false
+	else:
+		inimusic.playing = true

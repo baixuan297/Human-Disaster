@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://54r3hrh11wxv"
+path="res://.godot/imported/container-wide.obj-5d17a3847f9f420ee6ce9562082422da.mesh"
+
+[deps]
+
+files=["res://.godot/imported/container-wide.obj-5d17a3847f9f420ee6ce9562082422da.mesh"]
+
+source_file="res://Scene/map/miniGame/kenney_space-station-kit/Models/OBJ format/container-wide.obj"
+dest_files=["res://.godot/imported/container-wide.obj-5d17a3847f9f420ee6ce9562082422da.mesh", "res://.godot/imported/container-wide.obj-5d17a3847f9f420ee6ce9562082422da.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

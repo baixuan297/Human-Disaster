@@ -1,0 +1,17 @@
+[gd_resource type="StandardMaterial3D" load_steps=4 format=3 uid="uid://d03gjwapg0c6f"]
+
+[ext_resource type="Texture2D" uid="uid://bhcegsijov5gr" path="res://素材/image/gun/mp7texture/mp7_Mp7M_BaseColor.png" id="1_1e4bb"]
+[ext_resource type="Texture2D" uid="uid://op2c1mpqiua" path="res://素材/image/gun/mp7texture/mp7_Mp7M_OcclusionRoughnessMetallic.png" id="2_cgvnx"]
+[ext_resource type="Texture2D" uid="uid://bq6fjpysyvsq6" path="res://素材/image/gun/mp7texture/mp7_Mp7M_Normal.png" id="3_bmj30"]
+
+[resource]
+albedo_texture = ExtResource("1_1e4bb")
+metallic = 1.0
+metallic_texture = ExtResource("2_cgvnx")
+metallic_texture_channel = 2
+roughness_texture = ExtResource("2_cgvnx")
+roughness_texture_channel = 1
+normal_enabled = true
+normal_texture = ExtResource("3_bmj30")
+ao_enabled = true
+ao_texture = ExtResource("2_cgvnx")
