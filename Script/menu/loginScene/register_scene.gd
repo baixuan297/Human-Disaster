@@ -12,7 +12,6 @@ extends Control
 # Label
 @onready var pswd_strength_label: Label = $Panel/MarginContainer/VBoxContainer/passwordStrength_container/pswd_strength_label
 @onready var pswd_not_match_label: Label = $Panel/MarginContainer/VBoxContainer/VBoxContainer/confirm_pswd_label/pswd_not_match_label
-
 # Button
 @onready var register: Button = $Panel/MarginContainer/VBoxContainer/register
 @onready var get_code_button: Button = $Panel/MarginContainer/VBoxContainer/veriCode/veriInput_container/verifi_code_input/get_code_button
@@ -25,57 +24,36 @@ extends Control
 @onready var confirm_password_wrong_label: Label = $Panel/MarginContainer/VBoxContainer/VBoxContainer/confirmPassword_Wrong_label
 @onready var agreement_wrong_label: Label = $Panel/MarginContainer/VBoxContainer/VBoxContainer2/agreement_Wrong_label
 
-
 ## 变量
 var pswd_match: bool = false
 var veriCode_match: bool = false
+var agmt_match: bool = false
+
+## 全局
+var userManager: UserManager
+var gb_message: GlobalMessage
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
+	userManager = UserManager
+	gb_message = GBMssage
+
+func _on_mail_input_text_changed(new_text: String) -> void:
+	var email_regex = RegEx.new()
+	email_regex.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
+	if email_regex.search(new_text):
+		get_code_button.disabled = false
+	else:
+		get_code_button.disabled = true
+		
+func _on_get_code_button_pressed() -> void:
 	pass # Replace with function body.
 
-@warning_ignore("unused_parameter")
-func _process(delta: float) -> void:
-	if pswd_match && veriCode_match:
-		register.disabled = false
+func _on_verifi_code_input_text_changed(new_text: String) -> void:
+	if new_text == "123456":
+		veriCode_match = true
+	update_register_button()
 
-func _on_register_pressed() -> void:
-	if !agreement_checkbox.pressed:
-		return
-	#var username = username_input.text.strip_edges()
-	#var password_input = password_input.text
-	#
-	#if username.is_empty() or password_input.is_empty():
-		#_show_message("用户名和密码不能为空！", false)
-		#return
-	#
-	#if username.length() < 3:
-		#_show_message("用户名至少需要3个字符！", false)
-		#return
-	#
-	#if password_input.length() < 6:
-		#_show_message("密码至少需要6个字符！", false)
-		#return
-	#
-	#message_label.text = "注册中..."
-	#
-	## 先注册到本地
-	#var local_result = user_manager.register_local(username, password_input)
-	#
-	#if not local_result:
-		#_show_message("注册失败：用户名已存在！", false)
-		#return
-	#
-	## 同时注册到服务器
-	#var server_result = await user_manager.register_server(username, password_input)
-	#
-	#if server_result:
-		#_show_message("注册成功！已同步到服务器", true)
-	#else:
-		#_show_message("注册成功！（服务器同步失败）", true)
-	#
-	#if remember_me.button_pressed:
-		#user_manager.save_credentials(username, password_input)
 
 func _on_password_text_changed(new_text: String) -> void:
 	match check_password_strength(new_text):
@@ -146,25 +124,37 @@ func check_password_strength(password_text: String) -> String:
 
 func _on_back_pressed() -> void:
 	self.queue_free()
-
-
-@warning_ignore("unused_parameter")
-func _on_confirm_password_editing_toggled(toggled: bool) -> void:
-	if confirm_password_input.text == password_input.text:
+	
+func _on_confirm_password_input_text_changed(new_text: String) -> void:
+	if new_text == password_input.text:
 		pswd_match = true
 		pswd_not_match_label.visible = false
 	else:
 		pswd_not_match_label.visible = true
 		pswd_match = false
-		
+	update_register_button()
 
-func _on_mail_input_text_changed(new_text: String) -> void:
-	if new_text.contains("@") && new_text.contains("."):
-		get_code_button.disabled = false
+func _on_agreement_checkbox_pressed() -> void:
+	agmt_match = true
+	update_register_button()
+	
+func _on_register_pressed() -> void:
+	if !agreement_checkbox.pressed:
+		return
 		
-func _on_get_code_button_pressed() -> void:
-	pass # Replace with function body.
+	var mail = mail_input.text
+	var password = password_input.text
 
-func _on_verifi_code_input_text_changed(new_text: String) -> void:
-	if new_text == "123456":
-		veriCode_match = true
+	# 先注册到本地
+	var result = userManager.user_register(mail, password,mail)
+	
+	if not result:
+		gb_message.show_message("Registration failed: Username already exists!", "warning")
+		return
+	
+	if result:
+		await get_tree().create_timer(1.0).timeout
+		self.queue_free()
+	
+func update_register_button() -> void:
+	register.disabled = not (pswd_match && veriCode_match && agmt_match)

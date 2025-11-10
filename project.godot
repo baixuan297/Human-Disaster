@@ -35,6 +35,7 @@ PauseManager="*res://autoload/PauseManager.gd"
 UiManager="*res://autoload/UIManager.gd"
 UserManager="*res://autoload/UserManager.gd"
 ApiManager="*res://autoload/APIManager.gd"
+GBMssage="*res://autoload/GlobalMessage/GlobalMessage.tscn"
 
 [dialogic]
 
@@ -70,6 +71,7 @@ import/fbx/enabled=false
 [global_group]
 
 enemy=""
+UserLogin=""
 
 [input]
 

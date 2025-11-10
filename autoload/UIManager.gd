@@ -30,6 +30,9 @@ func _ready():
 
 		
 func _input(event: InputEvent) -> void:
+	if _is_ui_allowed():
+		return
+	
 	if event is InputEventKey and event.pressed and not event.echo:
 		if Input.is_action_just_pressed("ui_cancel") and current_ui:
 			close_current_ui()
@@ -113,3 +116,9 @@ func close_all_uis():
 		close_current_ui()
 	ui_stack.clear()
 	print_debug("所有UI已关闭")
+
+func _is_ui_allowed() -> bool:
+	var root = get_tree().current_scene
+	if root and root.is_in_group("UserLogin"):
+		return true
+	return false

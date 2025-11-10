@@ -1,20 +1,47 @@
-# UserManager.gd
-# 用户管理类 - 处理本地和服务器的用户数据
 extends Node
+# 用户管理类 - 处理本地和服务器的用户数据
 
 const SAVE_PATH = "user://users.dat"
 const CREDENTIALS_PATH = "user://credentials.dat"
-const SERVER_URL = "http://192.168.1.157:3000/api"  # 修改为你的服务器地址
 
 var local_users = {}
 
 func _init():
 	_load_local_users()
+	
+	
+func user_register(username: String, password: String, mail: String) -> bool:
+	if local_users.has(username):
+		return false
+
+	
+	ApiManager.register(username, password, mail, func(success, data):
+		if success:
+			print("✅ 注册成功:", data)
+			register_local(username, password)
+		else:
+			print("❌ 注册失败:", data)
+			return false
+	)
+	return register_local(username, password)
+
+func user_login(username: String, password: String) -> bool:
+	if not local_users.has(username):
+		return false
+
+	
+	ApiManager.login(username, password, func(success, data):
+		if success:
+			print("✅ 登录成功，token=", ApiManager.jwt_token)
+			return true
+		else:
+			print("❌ 登录失败:", data)
+			return false
+		)
+	return login_local(username, password)
 
 # ============ 本地存储功能 ============
 func register_local(username: String, password: String) -> bool:
-	if local_users.has(username):
-		return false
 	
 	var hashed_password = _hash_password(password)
 	local_users[username] = {
@@ -25,10 +52,10 @@ func register_local(username: String, password: String) -> bool:
 	return true
 
 func login_local(username: String, password: String) -> bool:
-	if not local_users.has(username):
-		return false
-	
 	var hashed_password = _hash_password(password)
+	print("password = ", password, " / password_hased = ", hashed_password)
+	print(local_users[username]["password"])
+	print(local_users[username]["password"] == hashed_password)
 	return local_users[username]["password"] == hashed_password
 
 func save_user_local(username: String, password: String):
@@ -61,7 +88,7 @@ func _save_local_users():
 		file.store_string(JSON.stringify(local_users, "\t"))
 		file.close()
 
-# ============ 凭据保存功能（记住密码）============
+# ============  凭据保存功能（记住密码）============
 
 func save_credentials(username: String, password: String):
 	var credentials = {
@@ -93,48 +120,6 @@ func load_credentials() -> Dictionary:
 func clear_credentials():
 	if FileAccess.file_exists(CREDENTIALS_PATH):
 		DirAccess.remove_absolute(CREDENTIALS_PATH)
-
-# ============ 服务器通信功能 ============
-
-func register_server(username: String, password: String) -> bool:
-	var http = HTTPRequest.new()
-	add_child(http)
-	
-	var json = JSON.stringify({
-		"username": username,
-		"password": password
-	})
-	
-	var headers = ["Content-Type: application/json"]
-	http.request(SERVER_URL + "/register", headers, HTTPClient.METHOD_POST, json)
-	
-	var result = await http.request_completed
-	http.queue_free()
-	
-	if result[1] == 200 or result[1] == 201:
-		return true
-	
-	return false
-
-func login_server(username: String, password: String) -> bool:
-	var http = HTTPRequest.new()
-	add_child(http)
-	
-	var json = JSON.stringify({
-		"username": username,
-		"password": password
-	})
-	
-	var headers = ["Content-Type: application/json"]
-	http.request(SERVER_URL + "/login", headers, HTTPClient.METHOD_POST, json)
-	
-	var result = await http.request_completed
-	http.queue_free()
-	
-	if result[1] == 200:
-		return true
-	
-	return false
 
 # ============ 工具函数 ============
 
