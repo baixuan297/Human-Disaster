@@ -1,0 +1,8 @@
+[gd_resource type="GradientTexture1D" load_steps=2 format=3 uid="uid://qsatw440kv62"]
+
+[sub_resource type="Gradient" id="Gradient_rwmgr"]
+resource_local_to_scene = true
+colors = PackedColorArray(1, 1, 0, 1, 1, 0, 0, 1)
+
+[resource]
+gradient = SubResource("Gradient_rwmgr")

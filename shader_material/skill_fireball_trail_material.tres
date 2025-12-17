@@ -1,0 +1,17 @@
+[gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://k4npmlk0u7a6"]
+
+[ext_resource type="Shader" uid="uid://dvbuo2tsnjo3c" path="res://shader_material/skill_fireball_trail.tres" id="1_kiv35"]
+
+[sub_resource type="Gradient" id="Gradient_bgdbr"]
+offsets = PackedFloat32Array(0, 0.08230453, 0.5596708, 0.9218107, 1)
+colors = PackedColorArray(1, 0, 0, 0, 1, 0, 0, 1, 0.9565702, 0.54537356, 3.85046e-07, 1, 0.86822003, 0.7793772, 4.3182695e-08, 1, 0.8570065, 0.80888695, 0, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_8plnq"]
+gradient = SubResource("Gradient_bgdbr")
+use_hdr = true
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_kiv35")
+shader_parameter/Color_Texture = SubResource("GradientTexture1D_8plnq")
+shader_parameter/Vector2Parameter = Vector2(2, 0)

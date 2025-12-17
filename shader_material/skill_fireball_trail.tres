@@ -1,0 +1,106 @@
+[gd_resource type="VisualShader" load_steps=10 format=3 uid="uid://dvbuo2tsnjo3c"]
+
+[ext_resource type="Texture2D" uid="uid://cbmhjb6bkmje2" path="res://素材/image/skill/skillEffect/FireBall/Fire_tail.jpg" id="1_npi0q"]
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_opthp"]
+expanded_output_ports = [0]
+texture = ExtResource("1_npi0q")
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_j8m1o"]
+input_name = "time"
+
+[sub_resource type="VisualShaderNodeVectorOp" id="VisualShaderNodeVectorOp_bfj67"]
+default_input_values = [0, Vector2(0, 0), 1, Vector2(0, 0)]
+op_type = 0
+operator = 2
+
+[sub_resource type="VisualShaderNodeUVFunc" id="VisualShaderNodeUVFunc_3b8aa"]
+
+[sub_resource type="VisualShaderNodeVec2Parameter" id="VisualShaderNodeVec2Parameter_x084y"]
+parameter_name = "Vector2Parameter"
+
+[sub_resource type="VisualShaderNodeTexture2DParameter" id="VisualShaderNodeTexture2DParameter_7f5c5"]
+parameter_name = "Color_Texture"
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_rh3oa"]
+expanded_output_ports = [0]
+source = 5
+texture_type = 1
+
+[sub_resource type="VisualShaderNodeFloatOp" id="VisualShaderNodeFloatOp_45b8e"]
+operator = 2
+
+[resource]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, depth_test_default, cull_disabled, diffuse_lambert, specular_schlick_ggx, unshaded, shadows_disabled, ambient_light_disabled, fog_disabled;
+
+uniform sampler2D Color_Texture : source_color;
+uniform vec2 Vector2Parameter;
+uniform sampler2D tex_frg_2;
+
+
+
+void fragment() {
+	vec4 n_out8p0;
+// Texture2D:8
+	n_out8p0 = texture(Color_Texture, UV);
+	float n_out8p4 = n_out8p0.a;
+
+
+// Input:3
+	float n_out3p0 = TIME;
+
+
+// Vector2Parameter:6
+	vec2 n_out6p0 = Vector2Parameter;
+
+
+// VectorOp:4
+	vec2 n_out4p0 = vec2(n_out3p0) * n_out6p0;
+
+
+// UVFunc:5
+	vec2 n_in5p1 = vec2(1.00000, 1.00000);
+	vec2 n_out5p0 = n_out4p0 * n_in5p1 + UV;
+
+
+// Texture2D:2
+	vec4 n_out2p0 = texture(tex_frg_2, n_out5p0);
+	float n_out2p1 = n_out2p0.r;
+
+
+// FloatOp:9
+	float n_out9p0 = n_out8p4 * n_out2p1;
+
+
+// Output:0
+	ALBEDO = vec3(n_out8p0.xyz);
+	ALPHA = n_out9p0;
+
+
+}
+"
+modes/cull = 2
+flags/unshaded = true
+flags/shadows_disabled = true
+flags/ambient_light_disabled = true
+flags/fog_disabled = true
+nodes/fragment/0/position = Vector2(780, 120)
+nodes/fragment/2/node = SubResource("VisualShaderNodeTexture_opthp")
+nodes/fragment/2/position = Vector2(240, 200)
+nodes/fragment/3/node = SubResource("VisualShaderNodeInput_j8m1o")
+nodes/fragment/3/position = Vector2(-280, 440)
+nodes/fragment/4/node = SubResource("VisualShaderNodeVectorOp_bfj67")
+nodes/fragment/4/position = Vector2(20, 460)
+nodes/fragment/5/node = SubResource("VisualShaderNodeUVFunc_3b8aa")
+nodes/fragment/5/position = Vector2(0, 220)
+nodes/fragment/6/node = SubResource("VisualShaderNodeVec2Parameter_x084y")
+nodes/fragment/6/position = Vector2(-280, 560)
+nodes/fragment/7/node = SubResource("VisualShaderNodeTexture2DParameter_7f5c5")
+nodes/fragment/7/position = Vector2(-180, -180)
+nodes/fragment/8/node = SubResource("VisualShaderNodeTexture_rh3oa")
+nodes/fragment/8/position = Vector2(200, -200)
+nodes/fragment/9/node = SubResource("VisualShaderNodeFloatOp_45b8e")
+nodes/fragment/9/position = Vector2(460, 100)
+nodes/fragment/connections = PackedInt32Array(3, 0, 4, 0, 4, 0, 5, 2, 5, 0, 2, 0, 6, 0, 4, 1, 7, 0, 8, 2, 8, 0, 0, 0, 8, 4, 9, 0, 2, 1, 9, 1, 9, 0, 0, 1)
