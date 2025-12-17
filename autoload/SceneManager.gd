@@ -30,10 +30,12 @@ var scenes: Dictionary = {
 # 一个是用来加载场景中的UI，比如背包，地图，抽卡（如果有， 等。
 ## UI场景路径字典
 const UI_PATHS = {
+	# 场景名称 ： 场景路径
 	"MapUI": "",
 	"InventoryUI": "res://addons/xuanBag/scene/Inventory.tscn",
 	"ShopUI": "",
 	"SettingsUI": "",
+	"CharacterInfoUI": "res://Scene/menu/characterInfoMenu/character_menu.tscn",
 }
 
 

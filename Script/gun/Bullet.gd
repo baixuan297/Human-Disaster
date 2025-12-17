@@ -7,10 +7,7 @@ var velocity = Vector3.ZERO
 @onready var ray = $RayCast3D
 @onready var particles = $GPUParticles3D
 
-# Called when the node enters the scene tree for the first time.
-func _ready():
-	pass # Replace with function body.
-
+# 给手枪的子弹碰撞用这个来判定
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):
@@ -37,9 +34,10 @@ func _process(delta):
 			ray.enabled = false
 		
 		if ray.get_collider().is_in_group("enemy"):
-			ray.get_collider().hit()
+			ray.get_collider().enemy_hit()
+			ray.enabled = false
 		await get_tree().create_timer(1.0).timeout
-		queue_free()
+		destroy()
 		
 		ray.enabled = false
 		
@@ -49,5 +47,5 @@ func set_velocity(target):
 	look_at(target)
 	velocity = position.direction_to(target) * speed
 
-func _on_timer_timeout():
+func destroy() -> void:
 	queue_free()

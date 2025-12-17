@@ -1,8 +1,6 @@
 extends Node3D
 class_name World
 
-@export var PlayerScene : PackedScene
-
 @onready var crosshair = $effects/crosshair
 @onready var crosshairhit = $effects/crosshairhit
 @onready var FPS = $UI/FPS
@@ -17,10 +15,10 @@ var death_y: float = -20.0
 var falling: bool = true
 var timer: float = 0.0
 # Players Health
-@onready var label: Label = $UI/Label
-@onready var progress_bar: ProgressBar = $UI/ProgressBar
-const max_health = 100
-var health = max_health
+#@onready var label: Label = $UI/Label
+#@onready var progress_bar: ProgressBar = $UI/ProgressBar
+#const max_health = 100
+#var health = max_health
 
 var instance
 var zombie = preload("res://Scene/npc/enemy/zombie.tscn")
@@ -39,11 +37,10 @@ var terrain = preload("res://Scene/map/terrain.tscn")
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	player.connect("player_hit", damage)
+	#player.connect("player_hit", damage)
+	#player.player_hit.connect(damage)
+	player.player_died.connect(_on_player_died)
 	
-	set_health_label()
-	progress_bar.max_value = max_health
-	set_health_bar()
 
 func _input(event):
 	## pausa menu
@@ -55,10 +52,7 @@ func _input(event):
 		if collider is Interactable:
 			if collider.is_in_group("terrain"):
 				get_tree().change_scene_to_file("res://Scene/map/terrain.tscn")
-			if collider.is_in_group("machine"):
-				health = max_health
-				set_health_label()
-				set_health_bar()
+
 
 func _process(delta):
 	FPS.text = "FPS: %s\n" % str(Engine.get_frames_per_second())
@@ -80,7 +74,7 @@ func _get_random_child(parent_node):
 	var random_id = randi() % parent_node.get_child_count()
 	return parent_node.get_child(random_id)
 """
-# 生成小怪兽
+# 生成僵尸
 func _on_zombiespawn_timeout():
 	var spawn_point = _get_random_child(spawns).global_position
 	instance = zombie.instantiate()
@@ -111,20 +105,3 @@ func _on_player_died():
 		
 	#传送玩家到目标位置
 	player.global_position = _1.global_position
-	
-	#回血
-	health = max_health
-	set_health_bar()
-	set_health_label()
-
-# health
-func set_health_label():
-	label.text = "%s" %health
-func set_health_bar():
-	progress_bar.value = health
-func damage():
-	health -= 10
-	if health <= 0:
-		_on_player_died()
-	set_health_label()
-	set_health_bar()

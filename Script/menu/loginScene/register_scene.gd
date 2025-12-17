@@ -32,11 +32,17 @@ var agmt_match: bool = false
 ## 全局
 var userManager: UserManager
 var gb_message: GlobalMessage
+var apiManager: ApiManager
+
+# 验证码冷却
+var code_cooldown: float = 0.0
+const CODE_COOLDOWN_TIME: float = 60.0
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	userManager = UserManager
 	gb_message = GBMssage
+	apiManager = ApiManager
 
 func _on_mail_input_text_changed(new_text: String) -> void:
 	var email_regex = RegEx.new()
@@ -45,15 +51,48 @@ func _on_mail_input_text_changed(new_text: String) -> void:
 		get_code_button.disabled = false
 	else:
 		get_code_button.disabled = true
-		
+
+# 发送验证码
 func _on_get_code_button_pressed() -> void:
-	pass # Replace with function body.
+	var email = mail_input.text.strip_edges()
+	
+	if email.is_empty():
+		gb_message.show_message("请输入邮箱地址", "error")
+		return
+	
+	gb_message.show_message("正在发送验证码...", "warning")
+	get_code_button.disabled = true
+	
+	apiManager.send_verification_code(email, _on_verification_code_sent)
 
-func _on_verifi_code_input_text_changed(new_text: String) -> void:
-	if new_text == "123456":
+func _on_verification_code_sent(success: bool, data: Dictionary):
+	if success:
+		gb_message.show_message("验证码已发送到您的邮箱", "success")
+		code_cooldown = CODE_COOLDOWN_TIME
+	else:
+		var message = data.get("message", "发送失败")
+		gb_message.show_message("发送失败: " + message, "success")
+		get_code_button.disabled = false
+
+#func _on_verifi_code_input_text_changed(new_text: String) -> void:
+	#var email = mail_input.text
+	#apiManager.verify_email(email, new_text, _on_verificate)
+
+
+func _on_verifi_code_input_editing_toggled(toggled_on: bool) -> void:
+	var email = mail_input.text
+	var code: String = verifi_code_input.text
+	if !toggled_on:
+		apiManager.verify_email(email, code, _on_verificate)
+
+func _on_verificate(success: bool, data: Dictionary):
+	if success:
+		gb_message.show_message("邮箱验证成功", "success")
 		veriCode_match = true
-	update_register_button()
-
+		update_register_button()
+	else:
+		var message = data.get("message", "发送失败")
+		gb_message.show_message("发送失败: " + message, "success")
 
 func _on_password_text_changed(new_text: String) -> void:
 	match check_password_strength(new_text):
@@ -146,7 +185,7 @@ func _on_register_pressed() -> void:
 	var password = password_input.text
 
 	# 先注册到本地
-	var result = userManager.user_register(mail, password,mail)
+	var result = userManager.user_register(mail, password, mail)
 	
 	if not result:
 		gb_message.show_message("Registration failed: Username already exists!", "warning")

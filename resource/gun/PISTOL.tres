@@ -1,11 +1,16 @@
-[gd_resource type="Resource" script_class="Weapon_Resource" load_steps=2 format=3 uid="uid://dgrr26hc41c5q"]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3 uid="uid://dgrr26hc41c5q"]
 
+[ext_resource type="PackedScene" uid="uid://gmuq8un6mbeh" path="res://blender/gun/bullet.tscn" id="1_2qnqg"]
 [ext_resource type="Script" uid="uid://b82rehlfggawy" path="res://resource/gun/weapon_resource.gd" id="1_bscsr"]
 
 [resource]
 script = ExtResource("1_bscsr")
 Weapon_name = "PISTOL"
+projectile_scene = ExtResource("1_2qnqg")
 Current_Ammo = 10
 Reserve_Ammo = 30
 magazine = 10
 Max_Ammo = 30
+crit_rate = 0.2
+crit_multiplier = 2.0
+fire_rate = 1.0

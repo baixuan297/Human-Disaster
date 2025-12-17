@@ -97,19 +97,21 @@ func _on_request_completed(result: int, response_code: int, headers: PackedStrin
 #
 # 用户注册
 func register(username: String, password: String, email: String = "", callback: Callable = Callable()) -> void: 
-	# verification_code: String = "", 
+	
 	var data = {
 		"username": username,
+		"email" : email,
 		"password": password
 	}
-	
-	if email != "":
-		data["email"] = email
-	
-	#if verification_code != "":
-		#data["verification_code"] = verification_code
-	
 	make_request("/register", HTTPClient.METHOD_POST, data, callback)
+
+# 发送验证码
+func send_verification_code(email: String, callback: Callable) -> void:
+	make_request("/send_verification", HTTPClient.METHOD_POST, {"email": email}, callback)
+
+# 邮箱验证
+func verify_email(email: String, code: String, callback: Callable):
+	make_request("/verify_email", HTTPClient.METHOD_POST, {"email": email, "code": code}, callback)
 
 # 用户登录
 func login(username: String, password: String, callback: Callable) -> void:

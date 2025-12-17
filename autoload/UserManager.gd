@@ -15,7 +15,7 @@ func user_register(username: String, password: String, mail: String) -> bool:
 		return false
 
 	
-	ApiManager.register(username, password, mail, func(success, data):
+	ApiManager.register(username, password, mail, func(success: bool, data):
 		if success:
 			print("✅ 注册成功:", data)
 			register_local(username, password)
@@ -23,22 +23,27 @@ func user_register(username: String, password: String, mail: String) -> bool:
 			print("❌ 注册失败:", data)
 			return false
 	)
-	return register_local(username, password)
+	return true
 
 func user_login(username: String, password: String) -> bool:
 	if not local_users.has(username):
+		return false
+	
+	if not login_local(username, password):
 		return false
 
 	
 	ApiManager.login(username, password, func(success, data):
 		if success:
 			print("✅ 登录成功，token=", ApiManager.jwt_token)
-			return true
+			
+			#return true
 		else:
 			print("❌ 登录失败:", data)
 			return false
 		)
-	return login_local(username, password)
+	
+	return true
 
 # ============ 本地存储功能 ============
 func register_local(username: String, password: String) -> bool:

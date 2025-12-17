@@ -17,7 +17,7 @@ enum ItemType {
 	POTION,
 	TOOL,
 	MATERIAL,
-	QUEST
+	QUEST,
 }
 
 enum ItemRarity {
@@ -25,7 +25,7 @@ enum ItemRarity {
 	UNCOMMON,
 	RARE,
 	EPIC,
-	LEGENDARY
+	LEGENDARY,
 }
 
 func get_rarity_color() -> Color:

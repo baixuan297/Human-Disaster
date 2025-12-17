@@ -17,7 +17,7 @@ class ChannelJoin:
 		# A private chat between two users.
 		DirectMessage = 2,
 		# A chat within a group on the server.
-		Group = 3
+		Group = 3,
 	}
 
 	var persistence : bool

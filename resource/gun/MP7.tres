@@ -10,3 +10,7 @@ Reserve_Ammo = 60
 magazine = 30
 Max_Ammo = 60
 Auto_Fire = true
+Base_damage = 60
+Current_damage = 60
+crit_rate = 0.4
+crit_multiplier = 3.0

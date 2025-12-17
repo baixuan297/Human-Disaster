@@ -24,7 +24,7 @@ var selected_slot_index: int = -1
 var inventory_manager: Node
 
 func _ready():
-	
+	# **
 	PauseManager.open_inventory()
 	
 	# 添加到组中方便调用
@@ -37,7 +37,7 @@ func _ready():
 	# 初始化显示武器背包
 	inventory_manager.switch_bag("Weapon")
 	
-	process_mode = Node.PROCESS_MODE_ALWAYS	
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 
 func setup_slots():

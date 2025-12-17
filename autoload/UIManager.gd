@@ -1,5 +1,5 @@
 extends Node
-class_name UIManager
+#class_name UIManager
 
 ## UI管理器 - 栈式管理，同时只能打开一个UI
 
@@ -15,7 +15,9 @@ var current_ui: Control = null
 var ui_container: CanvasLayer
 ## 用来保存输入的映射表
 var action_to_ui = {
+	# 按键映射 ： SceneManager中的UI名称映射
 	"Inventory": "InventoryUI",
+	"characterInfo": "CharacterInfoUI"
 	#"map": "MapUI"
 }
 
@@ -41,15 +43,19 @@ func _input(event: InputEvent) -> void:
 
 		for action in action_to_ui.keys():
 			if Input.is_action_just_pressed(action):
-				open_ui(action_to_ui[action])
+				#open_ui(action_to_ui[action])
+				#get_viewport().set_input_as_handled()
+				#return
+				toggle_ui(action_to_ui[action])
 				get_viewport().set_input_as_handled()
 				return
+
 
 # 打开UI
 func open_ui(ui_name: String):
 	# 如果当前已经是这个UI，则不做处理
 	if current_ui and ui_stack.size() > 0 and ui_stack[-1] == ui_name:
-		print_debug("UI已经打开: ", ui_name)
+		#print_debug("UI已经打开: ", ui_name)
 		return
 	
 	# 关闭当前UI
@@ -66,9 +72,10 @@ func open_ui(ui_name: String):
 		#ui_container.add_child(ui_instance)
 		get_tree().root.add_child(ui_instance)
 		ui_opened.emit(ui_name)
-		print_debug("UI已打开: ", ui_name, " - 栈深度: ", ui_stack.size())
+		#print_debug("UI已打开: ", ui_name, " - 栈深度: ", ui_stack.size())
 	else:
 		push_error("创建UI失败: ", ui_name)
+
 
 # 关闭当前UI
 func close_current_ui():
@@ -96,9 +103,11 @@ func toggle_ui(ui_name: String):
 		# 否则打开新UI
 		open_ui(ui_name)
 
+
 # 检查是否有UI打开
 func has_ui_open() -> bool:
 	return current_ui != null
+
 
 # 获取当前UI名称
 func get_current_ui_name() -> String:
