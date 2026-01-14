@@ -73,6 +73,7 @@ import/fbx/enabled=false
 
 enemy=""
 UserLogin=""
+Player=""
 
 [input]
 
