@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="Stats" load_steps=2 format=3 uid="uid://sc4ya0ltiumw"]
+
+[ext_resource type="Script" uid="uid://cmseai2ncuo1q" path="res://resource/stats/stats.gd" id="1_d8o8k"]
+
+[resource]
+resource_local_to_scene = true
+script = ExtResource("1_d8o8k")
+base_max_health = 100000.0
+base_attack = 0.0
+base_defense = 0.0
+base_exp_to_next_level = 0.0
+base_speed = 0.0
+level = 1
+current_health = 100000.0
+metadata/_custom_type_script = "uid://cmseai2ncuo1q"
