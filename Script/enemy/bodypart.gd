@@ -1,16 +1,26 @@
 extends Area3D
+class_name EnemyBodyPart
 
-@export var damage := 40
+enum BodyPart {
+	HEAD,
+	BODY,
+	LIMB,
+}
 
-signal body_part_hit(dam, weapon)
+@export var body_part: BodyPart = BodyPart.BODY
 
-# Called when the node enters the scene tree for the first time.
-func _ready():
-	pass # Replace with function body.
-	
-func enemy_hit(weapon: WeaponData = null):
-	#emit_signal("body_part_hit", damage)
-	if weapon:
-		body_part_hit.emit(weapon.Current_damage, weapon)
-	else:
-		body_part_hit.emit(damage, weapon)
+signal body_part_hit(attack_data: AttackData)
+
+func enemy_hit(attack_data: AttackData) -> void:
+	if attack_data == null:
+		return
+
+	# 只记录命中部位，不计算
+	match body_part:
+		BodyPart.HEAD:
+			attack_data.body_part_multiplier = 2.0
+		BodyPart.BODY:
+			attack_data.body_part_multiplier = 1.0
+		BodyPart.LIMB:
+			attack_data.body_part_multiplier = 0.5
+	body_part_hit.emit(attack_data)

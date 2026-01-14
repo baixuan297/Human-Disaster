@@ -101,6 +101,7 @@ func _execute_projectile_skill(target_position: Vector3):
 		var projectile: Node3D = skill_resource.cast_effect.instantiate()
 		owner_node.get_parent().add_child(projectile)
 		var hand_node: Marker3D = owner_node.get_node("Hand_node")
+		projectile.setup(skill_resource)  # **
 		projectile.global_position = hand_node.global_position
 		
 		

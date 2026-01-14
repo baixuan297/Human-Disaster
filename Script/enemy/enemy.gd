@@ -1,6 +1,7 @@
 extends CharacterBody3D
 
-var player = null
+@onready var player: CharacterBody3D = \
+	get_tree().get_first_node_in_group("Player")
 var state_machine
 
 ## 当在世界中创建敌人实体，并且敌人被击中（子弹进入area中并且进行组的判定后）
@@ -12,11 +13,12 @@ const attack_range = 3.5
 
 # 挂载属性资源脚本
 @export var stats: Stats
-# 用来导入人物路径
-@export var player_path := "/root/World/Protagonist-FishMan"
+# 是否开始导航
+#@export var nav_status: bool = false
+
 # 用来获取玩家位置
-@onready var nav_agent = $NavigationAgent3D
-@onready var anim_tree = $AnimationTree
+@onready var nav_agent: NavigationAgent3D = $NavigationAgent3D
+@onready var anim_tree: AnimationTree = $AnimationTree
 @onready var health_bar = $Stats/SubViewport/health_bar
 @onready var stats_node: Node3D = $Stats
 
@@ -24,7 +26,6 @@ const attack_range = 3.5
 func _ready():
 	stats.health_changed.connect(_on_health_changed)
 	stats.died.connect(_on_died)
-	player = get_node(player_path)
 	
 	state_machine = anim_tree.get("parameters/playback")
 	
@@ -35,6 +36,8 @@ func _process(delta):
 	# 初始速度为0
 	velocity = Vector3.ZERO
 	
+	# ** 
+	# 加入距离测算来决定是否启动
 	match state_machine.get_current_node():
 		"run":
 			# 导航
@@ -57,6 +60,9 @@ func _process(delta):
 func _target_in_range():
 	# 判断是否在攻击范围内
 	return global_position.distance_to(player.global_position) < attack_range
+	
+func _get_player_range() -> bool:
+	return global_position.distance_to(player.global_position) >= 10
 
 	
 func _hit_finished():
@@ -74,9 +80,9 @@ func _hit_finished():
 		#await get_tree().create_timer(4.0).timeout
 		#queue_free()
 
-func _on_area_3d_body_part_hit(damage: float, weapon: WeaponData):
+func _on_area_3d_body_part_hit(attack_data: AttackData):
 	emit_signal("enemy_hit")
-	stats.take_damage(damage, weapon)
+	stats.take_damage(attack_data)
 
 func _on_health_changed(cur_health: float, max_health: float) -> void:
 	# 你可以在这里更新血条等 UI

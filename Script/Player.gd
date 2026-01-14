@@ -114,6 +114,10 @@ var CurrentAni = IDLE
 # ammo, reload ammo
 @onready var Ammo_container: HBoxContainer = $UI/HBoxContainer
 @onready var no_more_bullet: Label = $UI/No_more_bullet
+# crosshair
+@onready var crosshairhit: TextureRect = $UI/effects/crosshairhit
+@onready var crosshair: TextureRect = $UI/effects/crosshair
+
 
 # 玩家被攻击信号
 #signal player_hit
@@ -154,7 +158,7 @@ var can_shoot = true
 var pick_object : Object
 var rotation_power = 0.05
 
-# 场景动画
+# 场景动画 **
 @onready var spacheAni = $"../stage/NavigationRegion3D/spaceship_interior1/AnimationPlayer"
 
 # Get the gravity from the project settings to be synced with RigidBody nodes
@@ -839,7 +843,13 @@ func mp7_aimray(person):
 				get_parent().add_child(instance)
 				if aimray.get_collider().is_in_group("enemy"):
 					# **
-					aimray.get_collider().enemy_hit(_weapon_resource.get(0))
+					var attackData := AttackData.new()
+					attackData.source = AttackData.AttackType.WEAPON
+					attackData.weapon_data = _weapon_resource[0]
+					#attack.body_part_multiplier = 2.0
+					aimray.get_collider().enemy_hit(attackData)
+					#aimray.get_collider().stats.take_damage(attackData)
+					_on_enemy_hit() # **
 					instance.trriger_particles(aimray.get_collision_point(), mp7_barrel.global_position, true)
 				else:
 					instance.trriger_particles(aimray.get_collision_point(), mp7_barrel.global_position, false)
@@ -1071,3 +1081,10 @@ func setup_player_stats() -> void:
 	health_bar.max_value = max_health
 	_update_health_stat()
 	playerStats.died.connect(_on_player_died)
+
+
+func _on_enemy_hit() -> void:
+	# 击中反馈
+	crosshairhit.visible = true
+	await get_tree().create_timer(0.1).timeout
+	crosshairhit.visible = false 

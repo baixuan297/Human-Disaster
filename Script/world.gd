@@ -88,14 +88,14 @@ func _on_alienspawn_timeout():
 	instance = alien.instantiate()
 	instance.position = spawn_point
 	instance.visible = true
-	instance.enemy_hit.connect(_on_enemy_hit)
+	#instance.enemy_hit.connect(_on_enemy_hit)
 	navigation_region.add_child(instance)
 
-func _on_enemy_hit():
-	# 击中反馈
-	crosshairhit.visible = true
-	await get_tree().create_timer(0.1).timeout
-	crosshairhit.visible = false
+#func _on_enemy_hit():
+	## 击中反馈
+	#crosshairhit.visible = true
+	#await get_tree().create_timer(0.1).timeout
+	#crosshairhit.visible = false
 	
 func _on_player_died():
 	# 删除敌人

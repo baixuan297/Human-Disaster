@@ -136,15 +136,27 @@ func recalculate_stats() -> void:
 		set(cur_propety_name, get(cur_propety_name) + stat_addends[stat_name])
 		
 ## 承受伤害（防御计算 + 死亡判定）
-func take_damage(amount: float, weapon: WeaponData = null) -> void:
+func take_damage(attack_data: AttackData) -> void:
 	# 计算基础伤害
-	var damage: float = amount
+	var damage: float = attack_data.damage
 	print("敌人收到的伤害为", damage)
 
-	# 如果有攻击者，用它的攻击力修正伤害
-	if weapon:
+	# 如果是武器攻击，用武器数据修正伤害
+	if attack_data.source == AttackData.AttackType.WEAPON and attack_data.weapon_data:
+		var weapon := attack_data.weapon_data
 		damage = weapon.Current_damage
-		print("攻击者的伤害为", damage)
+		print("攻击者的武器伤害为", damage)
+
+		# 命中部位倍率（只对武器生效）
+		damage *= attack_data.body_part_multiplier
+		print("命中部位倍率后伤害为", damage)
+
+	# 如果是技能攻击，直接使用技能伤害（不吃部位倍率）
+	if attack_data.skill_data:
+		print("")
+	if attack_data.source == AttackData.AttackType.SKILL and attack_data.skill_data:
+		damage = attack_data.skill_data.base_damage
+		print("技能伤害为", damage)
 
 	# 计算收到的伤害，并且使用max防止伤害是负数的
 	var actual_damage = max(damage - current_defense, 0.0)
@@ -169,7 +181,8 @@ func take_damage(amount: float, weapon: WeaponData = null) -> void:
 	# 输出信息
 	#if is_crit:
 		#print("💥 暴击！")
-	print("%s 受到 %.1f 点伤害，剩余 %.1f / %.1f" % [str(self), actual_damage, current_health, current_max_health])
+	print("%s 受到 %.1f 点伤害，剩余 %.1f / %.1f" 
+		% [str(self), actual_damage, current_health, current_max_health])
 
 	# 触发信号
 	health_changed.emit(current_health, current_max_health)
