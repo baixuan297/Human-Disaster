@@ -1,0 +1,124 @@
+[gd_resource type="VisualShader" load_steps=12 format=3 uid="uid://rdng1cdggt16"]
+
+[ext_resource type="Texture2D" uid="uid://dp2y2fkyqptl7" path="res://素材/image/skill/skillEffect/skillLightning/thunder_texture.png" id="1_dyvon"]
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_ikf3r"]
+output_port_for_preview = 0
+expanded_output_ports = [0]
+texture = ExtResource("1_dyvon")
+
+[sub_resource type="VisualShaderNodeUVFunc" id="VisualShaderNodeUVFunc_wcpkh"]
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_f43mk"]
+input_name = "time"
+
+[sub_resource type="VisualShaderNodeVectorOp" id="VisualShaderNodeVectorOp_cork7"]
+default_input_values = [0, Vector2(0, 0), 1, Vector2(0, -1)]
+op_type = 0
+operator = 2
+
+[sub_resource type="VisualShaderNodeSmoothStep" id="VisualShaderNodeSmoothStep_cshqx"]
+default_input_values = [0, 0.0, 1, 0.7, 2, 0.5]
+
+[sub_resource type="VisualShaderNodeInput" id="VisualShaderNodeInput_4ibp7"]
+expanded_output_ports = [0]
+input_name = "color"
+
+[sub_resource type="VisualShaderNodeRemap" id="VisualShaderNodeRemap_dyvon"]
+default_input_values = [1, 0.0, 2, 1.0, 3, 0.0, 4, 0.7]
+
+[sub_resource type="Gradient" id="Gradient_ikf3r"]
+offsets = PackedFloat32Array(0.36744186, 0.5860465, 0.74418604)
+colors = PackedColorArray(0, 0, 14.038452, 1, 1.3043077, 1.4687854, 1.1664894, 1, 16.847, 18.892157, 15.133328, 1)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_wcpkh"]
+gradient = SubResource("Gradient_ikf3r")
+use_hdr = true
+
+[sub_resource type="VisualShaderNodeTexture" id="VisualShaderNodeTexture_f43mk"]
+expanded_output_ports = [0]
+texture = SubResource("GradientTexture1D_wcpkh")
+
+[resource]
+code = "shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, depth_test_default, cull_disabled, diffuse_lambert, specular_schlick_ggx, unshaded;
+
+uniform sampler2D tex_frg_2;
+uniform sampler2D tex_frg_9;
+
+
+
+void fragment() {
+// Input:7
+	vec4 n_out7p0 = COLOR;
+	float n_out7p1 = n_out7p0.r;
+
+
+	float n_out8p0;
+// Remap:8
+	float n_in8p1 = 0.00000;
+	float n_in8p2 = 1.00000;
+	float n_in8p3 = 0.00000;
+	float n_in8p4 = 0.70000;
+	{
+		float __input_range = n_in8p2 - n_in8p1;
+		float __output_range = n_in8p4 - n_in8p3;
+		n_out8p0 = n_in8p3 + __output_range * ((n_out7p1 - n_in8p1) / __input_range);
+	}
+
+
+// Input:4
+	float n_out4p0 = TIME;
+
+
+// VectorOp:5
+	vec2 n_in5p1 = vec2(0.00000, -1.00000);
+	vec2 n_out5p0 = vec2(n_out4p0) * n_in5p1;
+
+
+// UVFunc:3
+	vec2 n_in3p1 = vec2(1.00000, 1.00000);
+	vec2 n_out3p0 = n_out5p0 * n_in3p1 + UV;
+
+
+// Texture2D:2
+	vec4 n_out2p0 = texture(tex_frg_2, n_out3p0);
+	float n_out2p1 = n_out2p0.r;
+
+
+// SmoothStep:6
+	float n_in6p1 = 0.70000;
+	float n_out6p0 = smoothstep(n_out8p0, n_in6p1, n_out2p1);
+
+
+// Texture2D:9
+	vec4 n_out9p0 = texture(tex_frg_9, vec2(n_out6p0));
+
+
+// Output:0
+	ALBEDO = vec3(n_out9p0.xyz);
+	ALPHA = n_out6p0;
+
+
+}
+"
+modes/cull = 2
+flags/unshaded = true
+nodes/fragment/0/position = Vector2(920, 100)
+nodes/fragment/2/node = SubResource("VisualShaderNodeTexture_ikf3r")
+nodes/fragment/2/position = Vector2(60, 260)
+nodes/fragment/3/node = SubResource("VisualShaderNodeUVFunc_wcpkh")
+nodes/fragment/3/position = Vector2(-220, 320)
+nodes/fragment/4/node = SubResource("VisualShaderNodeInput_f43mk")
+nodes/fragment/4/position = Vector2(-526.06903, 317.1471)
+nodes/fragment/5/node = SubResource("VisualShaderNodeVectorOp_cork7")
+nodes/fragment/5/position = Vector2(-500, 500)
+nodes/fragment/6/node = SubResource("VisualShaderNodeSmoothStep_cshqx")
+nodes/fragment/6/position = Vector2(500, 300)
+nodes/fragment/7/node = SubResource("VisualShaderNodeInput_4ibp7")
+nodes/fragment/7/position = Vector2(-160, -80)
+nodes/fragment/8/node = SubResource("VisualShaderNodeRemap_dyvon")
+nodes/fragment/8/position = Vector2(220, -80)
+nodes/fragment/9/node = SubResource("VisualShaderNodeTexture_f43mk")
+nodes/fragment/9/position = Vector2(680, -40)
+nodes/fragment/connections = PackedInt32Array(3, 0, 2, 0, 4, 0, 5, 0, 5, 0, 3, 2, 2, 1, 6, 2, 6, 0, 0, 1, 7, 1, 8, 0, 8, 0, 6, 0, 9, 0, 0, 0, 6, 0, 9, 0)

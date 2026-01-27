@@ -1,0 +1,57 @@
+[gd_scene load_steps=9 format=3 uid="uid://djna4p6spqkai"]
+
+[ext_resource type="PackedScene" uid="uid://bno8uxyb0o4mm" path="res://Scene/Player/protagonist_fish_man.tscn" id="1_ttlxy"]
+[ext_resource type="Texture2D" uid="uid://chsjl0teh5uub" path="res://素材/image/hdr/kloofendal_48d_partly_cloudy_puresky_2k.hdr" id="2_rel5w"]
+[ext_resource type="PackedScene" uid="uid://cqehbg2gkjgii" path="res://Scene/npc/trainingBot.tscn" id="3_tma4a"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_rel5w"]
+size = Vector2(10, 20)
+
+[sub_resource type="ConcavePolygonShape3D" id="ConcavePolygonShape3D_ttlxy"]
+data = PackedVector3Array(5, 0, 10, -5, 0, 10, 5, 0, -10, -5, 0, 10, -5, 0, -10, 5, 0, -10)
+
+[sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_tma4a"]
+panorama = ExtResource("2_rel5w")
+
+[sub_resource type="Sky" id="Sky_mslvf"]
+sky_material = SubResource("PanoramaSkyMaterial_tma4a")
+
+[sub_resource type="Environment" id="Environment_ohnj2"]
+background_mode = 2
+sky = SubResource("Sky_mslvf")
+
+[node name="trainingGround" type="Node3D"]
+
+[node name="floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_rel5w")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="floor"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="floor/StaticBody3D"]
+shape = SubResource("ConcavePolygonShape3D_ttlxy")
+
+[node name="Protagonist-FishMan" parent="." instance=ExtResource("1_ttlxy")]
+transform = Transform3D(0.3, 0, 0, 0, 0.3, 0, 0, 0, 0.3, 0, 0, -9.570166)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_ohnj2")
+
+[node name="trainingBot" parent="." instance=ExtResource("3_tma4a")]
+transform = Transform3D(-1.2, 0, -1.8119498e-07, 0, 1.2, 0, 1.8119498e-07, 0, -1.2, 3.9810162, 0, 8.044503)
+stats = null
+
+[node name="trainingBot2" parent="." instance=ExtResource("3_tma4a")]
+transform = Transform3D(-1.2, 0, -1.8119498e-07, 0, 1.2, 0, 1.8119498e-07, 0, -1.2, 1.9350097, 0, 8.044503)
+stats = null
+
+[node name="trainingBot3" parent="." instance=ExtResource("3_tma4a")]
+transform = Transform3D(-1.2, 0, -1.8119498e-07, 0, 1.2, 0, 1.8119498e-07, 0, -1.2, -0.12577629, 0, 8.044503)
+stats = null
+
+[node name="trainingBot4" parent="." instance=ExtResource("3_tma4a")]
+transform = Transform3D(-1.2, 0, -1.8119498e-07, 0, 1.2, 0, 1.8119498e-07, 0, -1.2, -2.1268675, 0, 8.044503)
+stats = null
+
+[node name="trainingBot5" parent="." instance=ExtResource("3_tma4a")]
+transform = Transform3D(-1.2, 0, -1.8119498e-07, 0, 1.2, 0, 1.8119498e-07, 0, -1.2, -4.1057315, 0, 8.044503)
+stats = null
