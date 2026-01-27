@@ -1,5 +1,8 @@
 extends Control
 
+@onready var skill_ui: Control = $Panel/SkillUI
+
+
 var pauseManager: PauseManager
 var uiManager: UiManager
 
@@ -7,15 +10,14 @@ var uiManager: UiManager
 func _ready() -> void:
 	pauseManager = PauseManager
 	uiManager = UiManager
-
-
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta: float) -> void:
-	pass
-
+	
+	pauseManager.open_characterInfo()
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	
+	skill_ui.visible = false
 
 func _on_attributes_button_pressed() -> void:
-	pass # Replace with function body.
+	skill_ui.visible = false
 
 
 func _on_weapon_button_pressed() -> void:
@@ -23,8 +25,7 @@ func _on_weapon_button_pressed() -> void:
 
 
 func _on_skill_button_pressed() -> void:
-	pass # Replace with function body.
-
+	skill_ui.visible = true
 
 func _on_core_button_pressed() -> void:
 	pass # Replace with function body.
@@ -39,5 +40,6 @@ func _on_profile_button_pressed() -> void:
 
 
 func _on_exit_button_pressed() -> void:
+	print("closing...")
 	pauseManager.close_inventory()
 	uiManager.close_current_ui()

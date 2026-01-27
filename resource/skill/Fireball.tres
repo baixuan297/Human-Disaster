@@ -1,15 +1,16 @@
-[gd_resource type="Resource" script_class="SkillResource" load_steps=3 format=3 uid="uid://dqo5cm121wfou"]
+[gd_resource type="Resource" script_class="SkillResource" load_steps=4 format=3 uid="uid://dqo5cm121wfou"]
 
 [ext_resource type="PackedScene" uid="uid://ph1jjjda5x57" path="res://Scene/skill system/skill_effect/skill_fireball.tscn" id="1_q4mrk"]
+[ext_resource type="Texture2D" uid="uid://c4rkwu8yax3w3" path="res://素材/image/skill/skillEffect/FireBall/fire.png" id="2_q4mrk"]
 [ext_resource type="Script" uid="uid://de1wfk184qmhu" path="res://resource/skill/skillResource.gd" id="3_yu216"]
 
 [resource]
 script = ExtResource("3_yu216")
 skill_name = "FireBall"
 description = "OMG"
+icon = ExtResource("2_q4mrk")
 base_attack_power = 0.0
-base_cooldown = 0.0
-base_range = 0.0
+base_range = 10000000000.0
 skill_type = 1
 cast_effect = ExtResource("1_q4mrk")
 metadata/_custom_type_script = "uid://de1wfk184qmhu"

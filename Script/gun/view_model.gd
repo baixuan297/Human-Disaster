@@ -16,7 +16,7 @@ func _process(delta):
 	gunrig.position = Vector3(lerp(gunrig.position.x, 0.0, delta * 10), 
 	lerp(gunrig.position.y, 0.0, delta * 10),
 	lerp(gunrig.position.z, 0.0, delta * 10))
-
+ 
 func sway(sway_amount):
 	#mp7rig.position.x += sway_amount.x * 0.00005
 	#mp7rig.position.y += sway_amount.y * 0.00005

@@ -14,7 +14,8 @@ extends Resource
 @export var base_attack_power: float = 50.0
 @export var base_cooldown: float = 5.0
 @export var base_range: float = 10.0
-@export var base_duration: float = 0.0  # 持续时间（DOT技能用）
+# 持续时间（DOT技能用）
+@export var base_duration: float = 0.0
 
 ## 成长曲线 - 使用Curve来定义属性随等级的变化
 # 伤害成长曲线

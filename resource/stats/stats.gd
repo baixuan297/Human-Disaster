@@ -34,7 +34,7 @@ class_name Stats
 
 var current_max_health: float = 100
 var current_attack: float = 10
-var current_defense: float = 5
+var current_defense: float = 5.0
 
 enum BuffableStats {
 	ATTACK,
@@ -135,62 +135,109 @@ func recalculate_stats() -> void:
 		var cur_propety_name: String = str("current_" + stat_name)
 		set(cur_propety_name, get(cur_propety_name) + stat_addends[stat_name])
 		
-## 承受伤害（防御计算 + 死亡判定）
+## 承受伤害（防御计算 + 死亡判定） **
 func take_damage(attack_data: AttackData) -> void:
-	# 计算基础伤害
-	var damage: float = attack_data.damage
-	print("敌人收到的伤害为", damage)
-
-	# 如果是武器攻击，用武器数据修正伤害
-	if attack_data.source == AttackData.AttackType.WEAPON and attack_data.weapon_data:
-		var weapon := attack_data.weapon_data
-		damage = weapon.Current_damage
-		print("攻击者的武器伤害为", damage)
-
-		# 命中部位倍率（只对武器生效）
-		damage *= attack_data.body_part_multiplier
-		print("命中部位倍率后伤害为", damage)
-
-	# 如果是技能攻击，直接使用技能伤害（不吃部位倍率）
-	if attack_data.skill_data:
-		print("")
-	if attack_data.source == AttackData.AttackType.SKILL and attack_data.skill_data:
-		damage = attack_data.skill_data.base_damage
-		print("技能伤害为", damage)
-
-	# 计算收到的伤害，并且使用max防止伤害是负数的
-	var actual_damage = max(damage - current_defense, 0.0)
-	print("最终的伤害为", actual_damage)
-
-	# 处理闪避与暴击
-	#var is_crit := false
-	#if weapon:
-		# 先判断闪避
-		#if randf() < base_dodge_rate:
-			#print("⚡ %s 闪避了攻击！" % str(self))
-			#return
-#
-		## 暴击判定
-		#if randf() < weapon.base_crit_rate:
-			#actual_damage *= attacker.base_crit_damage
-			#is_crit = true
-
-	# 结算伤害
+	if attack_data == null:
+		push_error("Stats: 收到空的 AttackData")
+		return
+	
+	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	print("🛡️ Stats 开始处理伤害")
+	
+	# ──────────────────────────────────────────────────────────
+	# 1. 使用 AttackData 中已计算好的 final_damage
+	# ──────────────────────────────────────────────────────────
+	var raw_damage: float = attack_data.final_damage
+	
+	print("   攻击类型: %s" % AttackData.AttackType.keys()[attack_data.source])
+	print("   基础伤害: %.1f" % attack_data.base_damage)
+	print("   部位倍率: %.2fx" % attack_data.body_part_multiplier)
+	print("   倍率后伤害: %.1f" % raw_damage)
+	
+	# ──────────────────────────────────────────────────────────
+	# 2. 应用防御减伤
+	# ──────────────────────────────────────────────────────────
+	var actual_damage:float = max(raw_damage - current_defense, 0.0)
+	
+	print("   当前防御: %.1f" % current_defense)
+	print("   最终伤害: %.1f" % actual_damage)
+	
+	# ──────────────────────────────────────────────────────────
+	# 3. 扣除生命值
+	# ──────────────────────────────────────────────────────────
 	current_health = clampf(current_health - actual_damage, 0, current_max_health)
-
-	# 输出信息
-	#if is_crit:
-		#print("💥 暴击！")
-	print("%s 受到 %.1f 点伤害，剩余 %.1f / %.1f" 
-		% [str(self), actual_damage, current_health, current_max_health])
-
-	# 触发信号
+	
+	# ──────────────────────────────────────────────────────────
+	# 4. 触发信号
+	# ──────────────────────────────────────────────────────────
 	health_changed.emit(current_health, current_max_health)
-
+	
 	if current_health <= 0:
-		print("💀 %s 死亡" % str(self))
+		print("💀 目标死亡")
 		died.emit()
-		
+	
+	print("   剩余生命: %.1f / %.1f" % [current_health, current_max_health])
+	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+# 可以用来当做帅帅的延迟伤害一起爆发 **
+func apply_attack_data(attack_data: AttackData) -> void:
+	take_damage(attack_data)
+	
+#func take_damage(attack_data: DamageEvent) -> void:
+	## 计算基础伤害
+	#var damage: float = attack_data.damage
+	#print("敌人收到的伤害为", damage)
+#
+	## 如果是武器攻击，用武器数据修正伤害
+	#if attack_data.source == AttackData.AttackType.WEAPON and attack_data.weapon_data:
+		#var weapon := attack_data.weapon_data
+		#damage = weapon.Current_damage
+		#print("攻击者的武器伤害为", damage)
+#
+		## 命中部位倍率（只对武器生效）
+		#damage *= attack_data.body_part_multiplier
+		#print("命中部位倍率后伤害为", damage)
+#
+	## 如果是技能攻击，直接使用技能伤害（不吃部位倍率）
+	#if attack_data.source == AttackData.AttackType.SKILL and attack_data.skill_data:
+		#damage = attack_data.skill_data.base_damage
+		#print("技能伤害为", damage, "im the real damage")
+#
+	## 计算收到的伤害，并且使用max防止伤害是负数的
+	#var actual_damage = max(damage - current_defense, 0.0)
+	#print("最终的伤害为", actual_damage)
+#
+	## 处理闪避与暴击
+	##var is_crit := false
+	##if weapon:
+		## 先判断闪避
+		##if randf() < base_dodge_rate:
+			##print("⚡ %s 闪避了攻击！" % str(self))
+			##return
+##
+		### 暴击判定
+		##if randf() < weapon.base_crit_rate:
+			##actual_damage *= attacker.base_crit_damage
+			##is_crit = true
+#
+	## 结算伤害
+	#current_health = clampf(current_health - actual_damage, 0, current_max_health)
+#
+	## 输出信息
+	##if is_crit:
+		##print("💥 暴击！")
+	#print("%s 受到 %.1f 点伤害，剩余 %.1f / %.1f" 
+		#% [str(self), actual_damage, current_health, current_max_health])
+#
+	## 触发信号
+	#health_changed.emit(current_health, current_max_health)
+#
+	#if current_health <= 0:
+		#print("💀 %s 死亡" % str(self))
+		#died.emit()
+
+
+
 ## 恢复生命
 func heal(amount: float) -> void:
 	current_health = min(current_health + amount, current_max_health)

@@ -180,8 +180,8 @@ var health: float
 
 ## 技能
 @onready var skill_manager: SkillManager = $SkillManager
-
 @export var fireball_skill: SkillResource
+@export var lightning_skill: SkillResource
 
 
 func _ready():
@@ -196,41 +196,20 @@ func _ready():
 	
 	setup_player_stats()
 	
+	
 	# 技能
 	skill_manager.character = self
+	
 	skill_manager.add_skill(fireball_skill, 1)
 	skill_manager.add_to_skill_bar("FireBall", 0)
 	
+	skill_manager.add_skill(lightning_skill, 1)
+	skill_manager.add_to_skill_bar("Lightning", 1)
+	
 	skill_manager.skill_used.connect(_on_skill_used)
-
-
-## 获取目标位置（示例：使用鼠标光线投射）
-func get_target_position() -> Vector3:
-	var camera = get_viewport().get_camera_3d()
-	if camera == null:
-		return global_position + global_transform.basis.z * 100
 	
-	var mouse_pos = get_viewport().get_mouse_position()
-	var from = camera.project_ray_origin(mouse_pos)
-	var to = from + camera.project_ray_normal(mouse_pos) * 1000
-	
-	var space_state = get_world_3d().direct_space_state
-	var query = PhysicsRayQueryParameters3D.create(from, to)
-	var result = space_state.intersect_ray(query)
-	
-	if result:
-		return result["position"]
-	else:
-		# 默认返回前方位置
-		return global_position + global_transform.basis.z * 100
-		
+	_setup_skills()
 
-## 技能使用回调
-func _on_skill_used(skill: Skill):
-	var info = skill.get_info()
-	print("使用技能: ", info["name"], " 等级: ", info["level"])
-	print("  伤害: ", info["damage"])
-	print("  冷却时间: ", info["cooldown"], "秒")
 
 
 func _input(event):	
@@ -347,6 +326,10 @@ func _input(event):
 	if Input.is_action_just_pressed("Skill1"):
 		var target_pos = get_target_position()
 		skill_manager.use_skill_from_bar(0, target_pos)
+	
+	if Input.is_action_just_pressed("Skill2"):
+		var target_pos = get_target_position()
+		skill_manager.use_skill_from_bar(1, target_pos)
 		
 
 
@@ -843,12 +826,14 @@ func mp7_aimray(person):
 				get_parent().add_child(instance)
 				if aimray.get_collider().is_in_group("enemy"):
 					# **
-					var attackData := AttackData.new()
-					attackData.source = AttackData.AttackType.WEAPON
-					attackData.weapon_data = _weapon_resource[0]
+					#var attackData := AttackData.new()
+					#attackData.source = AttackData.AttackType.WEAPON
+					#attackData.weapon_data = _weapon_resource[0]
 					#attack.body_part_multiplier = 2.0
-					aimray.get_collider().enemy_hit(attackData)
+					var attack := AttackData.create_weapon_attack(_weapon_resource[0], self)
+					aimray.get_collider().enemy_hit(attack)
 					#aimray.get_collider().stats.take_damage(attackData)
+
 					_on_enemy_hit() # **
 					instance.trriger_particles(aimray.get_collision_point(), mp7_barrel.global_position, true)
 				else:
@@ -1088,3 +1073,84 @@ func _on_enemy_hit() -> void:
 	crosshairhit.visible = true
 	await get_tree().create_timer(0.1).timeout
 	crosshairhit.visible = false 
+
+
+## 技能系統
+func _setup_skills():
+	# 添加火球术到技能栏槽位0
+	if fireball_skill:
+		skill_manager.add_skill(fireball_skill, 1)
+		skill_manager.add_to_skill_bar("Fireball", 0)
+		
+## 使用技能栏中的技能
+func _use_skill_from_bar(slot_index: int):
+	var target_pos = get_target_position()
+	
+	var success = skill_manager.use_skill_from_bar(slot_index, target_pos)
+	
+	if not success:
+		print("技能使用失败: 槽位 %d" % slot_index)
+
+func upgrade_skill(skill_name: String):
+	var success = skill_manager.level_up_skill(skill_name)
+	if success:
+		print("✅ 技能升级: %s" % skill_name)
+
+## 学习新技能
+func learn_skill(skill_res: SkillResource, slot_index: int = -1):
+	skill_manager.add_skill(skill_res, 1)
+	
+	if slot_index >= 0:
+		skill_manager.add_to_skill_bar(skill_res.skill_name, slot_index)
+	
+	print("📖 学习技能: %s" % skill_res.skill_name)
+
+## 获取技能冷却信息(用于UI)
+func get_skill_cooldowns() -> Array:
+	var cooldowns = []
+	var bar = skill_manager.get_skill_bar_info()
+	
+	for info in bar:
+		if info.is_empty():
+			cooldowns.append(null)
+		else:
+			cooldowns.append({
+				"name": info.get("name", ""),
+				"remaining": info.get("cooldown_remaining", 0.0),
+				"total": info.get("cooldown", 1.0),
+				"progress": info.get("cooldown_remaining", 0.0) / info.get("cooldown", 1.0)
+			})
+	
+	return cooldowns
+
+
+## 获取目标位置（示例：使用鼠标光线投射）
+func get_target_position() -> Vector3:
+	var camera = get_viewport().get_camera_3d()
+	if camera == null:
+		return global_position + global_transform.basis.z * 100
+	
+	var mouse_pos = get_viewport().get_mouse_position()
+	var from = camera.project_ray_origin(mouse_pos)
+	var to = from + camera.project_ray_normal(mouse_pos) * 1000
+	
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsRayQueryParameters3D.create(from, to)
+	var result = space_state.intersect_ray(query)
+	
+	if result:
+		return result["position"]
+	else:
+		# 默认返回前方位置
+		return global_position + global_transform.basis.z * 100
+		
+
+func _on_skill_used(skill: Skill):
+	print("✨ 使用技能: %s (冷却: %.1fs)" % [
+		skill.skill_resource.skill_name,
+		skill.cooldown_remaining
+	])
+	# 这里可以添加：
+	# - 播放施法动画
+	# - 消耗法力值
+	# - 更新 UI

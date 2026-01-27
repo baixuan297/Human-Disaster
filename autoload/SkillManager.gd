@@ -24,7 +24,6 @@ func _ready():
 
 ## 添加技能
 func add_skill(skill_resource: SkillResource, initial_level: int = 1) -> Skill:
-	print(skill_resource.skill_name)
 	if skills.has(skill_resource.skill_name):
 		push_warning("技能已存在: " + skill_resource.skill_name)
 		return skills[skill_resource.skill_name]
@@ -92,7 +91,7 @@ func add_to_skill_bar(skill_name: String, slot_index: int) -> bool:
 		return false
 	
 	var skill = get_skill(skill_name)
-	print(skill)
+	#print(skill.get_damage())
 	if skill == null:
 		return false
 	
