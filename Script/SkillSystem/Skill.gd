@@ -292,7 +292,8 @@ func _execute_skill(target_position: Vector3, target_node: Node3D) -> void:
 		SkillResource.SkillType.DOT:
 			_execute_dot_skill(target_node)
 		SkillResource.SkillType.BUFF:
-			_execute_buff_skill(target_node)
+			#_execute_buff_skill(target_node)
+			_execute_buff_skill(target_position)
 	
 	# 播放特效和音效
 	_play_effects()
@@ -351,21 +352,38 @@ func _execute_instant_skill(target_position: Vector3, target_node: Node3D) -> vo
 		target_node.take_damage(get_damage())
 
 
-## ──────────────────────────────────────────────────────────
-## 范围伤害技能（保持原逻辑，可优化）
-## ──────────────────────────────────────────────────────────
+## 范围伤害技能
+# TODO: 更新为能够给所有范围技能使用 并且更新范围指标 因为范围现在由雷电技能的area控制
+		# 并不是由skill resource中的range
 func _execute_aoe_skill(target_position: Vector3) -> void:
 	if skill_resource.cast_effect == null:
 		print("Not found AOE Skill: ", skill_resource.skill_name)
 		return
-		
+	
+	# --- 修正位置：确保在地面上 ---
+	#var ground_pos = target_position
+	#var space_state = owner_node.get_world_3d().direct_space_state
+	#
+	## 从敌人中心点向上偏移一点开始向下探测，防止敌人陷在地里探测不到
+	#var ray_start = target_position + Vector3.UP * 2.0 
+	#var ray_end = target_position + Vector3.DOWN * 5.0
+	#
+	#var ray_query = PhysicsRayQueryParameters3D.create(ray_start, ray_end)
+	## 建议设置射线只检测地形层（例如层 1），避免撞到敌人自己的碰撞盒
+	## ray_query.collision_mask = 1 
+	#
+	#var ray_result = space_state.intersect_ray(ray_query)
+	#
+	#if ray_result:
+		#ground_pos = ray_result.position # 修正为地面的确切坐标
+	
 	# 1. 实例化技能特效
 	var AOE_skill_node: Node3D = skill_resource.cast_effect.instantiate()
 	owner_node.get_parent().add_child(AOE_skill_node)
 	
-	# 2. 设置位置（在目标敌人头顶或地面）
-	# target_position 应该是通过射线或自动寻敌获取的最近敌人位置
-	AOE_skill_node.global_position = target_position
+	# 2. 设置位置（在目标敌人的地面）
+	var ground_pos := _get_ground_position(target_position)
+	AOE_skill_node.global_position = ground_pos
 	
 	# 3. 初始化数据
 	if AOE_skill_node.has_method("setup"):
@@ -397,10 +415,40 @@ func _execute_dot_skill(target_node: Node3D) -> void:
 ## ──────────────────────────────────────────────────────────
 ## 增益技能
 ## ──────────────────────────────────────────────────────────
-func _execute_buff_skill(target_node: Node3D) -> void:
-	if target_node and target_node.has_method("apply_buff"):
-		target_node.apply_buff(get_attack_power(), get_duration())
+#func _execute_buff_skill(target_node: Node3D) -> void:
+	#if target_node and target_node.has_method("apply_buff"):
+		#target_node.apply_buff(get_attack_power(), get_duration())
+func _execute_buff_skill(target_position: Vector3) -> void:
+	# 检查技能资源
+	#var is_aoe = skill_resource.is_aoe # 假设你在资源里定义了这个布尔值
+	
+	#if not is_aoe:
+		## --- 单体/个体逻辑：直接作用于施法者自己 ---
+		#if owner_node.has_method("apply_buff"):
+			## 传递技能资源、等级和施法者本身
+			#owner_node.apply_buff(skill_resource, current_level, owner_node)
+	#else:
+		# --- 范围逻辑：生成一个持续的 Buff 区域 ---
+		if skill_resource.cast_effect == null:
+			return
+			
+		var buff_area = skill_resource.cast_effect.instantiate()
+		owner_node.get_parent().add_child(buff_area)
+		
+		# 同样使用射线探测确保生成在地面（复用之前的逻辑）
+		buff_area.global_position = _get_ground_position(target_position)
+		
+		if buff_area.has_method("setup"):
+			# 传递数据，持续时间由资源决定
+			buff_area.setup(skill_resource, current_level, owner_node, skill_resource.base_duration)
 
+## 辅助函数：获取地面位置
+func _get_ground_position(pos: Vector3) -> Vector3:
+	var space_state = owner_node.get_world_3d().direct_space_state
+	var ray_query = PhysicsRayQueryParameters3D.create(pos + Vector3.UP, pos + Vector3.DOWN * 5.0)
+	ray_query.collision_mask = 1
+	var result = space_state.intersect_ray(ray_query)
+	return result.position if result else pos
 
 ## ──────────────────────────────────────────────────────────
 ## 播放特效

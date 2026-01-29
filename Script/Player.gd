@@ -182,6 +182,7 @@ var health: float
 @onready var skill_manager: SkillManager = $SkillManager
 @export var fireball_skill: SkillResource
 @export var lightning_skill: SkillResource
+@export var groupHealing_skill: SkillResource
 
 
 func _ready():
@@ -205,6 +206,9 @@ func _ready():
 	
 	skill_manager.add_skill(lightning_skill, 1)
 	skill_manager.add_to_skill_bar("Lightning", 1)
+	
+	skill_manager.add_skill(groupHealing_skill, 2)
+	skill_manager.add_to_skill_bar("Group Healing", 2)
 	
 	skill_manager.skill_used.connect(_on_skill_used)
 	
@@ -286,8 +290,7 @@ func _input(event):
 			health = max_health
 			_update_health_stat()
 		
-		# space ship open the door
-		# 打算使用position的方式来实现批量开关门，不行就一个一个来。
+		# TODO: 每个们有自己的动画和一个组
 		if collider.is_in_group('door1'):
 			spacheAni.play("Opendoor1")
 			await get_tree().create_timer(8.0).timeout
@@ -301,7 +304,7 @@ func _input(event):
 			await get_tree().create_timer(8.0).timeout
 			spacheAni.play_backwards("Opendoor3")
 		
-		# ** 这一片都得重做应该使用个管理器进行管理
+		# TODO: 这一片都得重做应该使用个管理器进行管理
 		if collider.is_in_group("chest"):
 			var inventory = InventoryManager
 			inventory.add_item_by_numeric_id(201, 1) # x87
@@ -330,6 +333,10 @@ func _input(event):
 	if Input.is_action_just_pressed("Skill2"):
 		var target_pos = get_target_position()
 		skill_manager.use_skill_from_bar(1, target_pos)
+		
+	if Input.is_action_just_pressed("Skill3"):
+		var target_pos = get_player_position()
+		skill_manager.use_skill_from_bar(2, target_pos)
 		
 
 
@@ -990,7 +997,7 @@ func _raise_weapon(new_weapon):
 
 
 # 敌人攻击我们
-func take_damage(dir):
+func take_damage():
 	# dir是敌人攻击我们方位
 	# TODO: 显示敌人攻击的方向
 	#emit_signal("player_hit")
@@ -1040,6 +1047,11 @@ func _update_health_stat() -> void:
 	var int_health: int = ceil(health)
 	health_label.text = "%s" %int_health
 
+func apply_healing(amount: int) -> void:
+	if health < max_health:
+		health += amount
+		health = clamp(health, 0, max_health)
+	_update_health_stat()
 
 ## 角色死亡
 func _on_player_died():
@@ -1123,8 +1135,11 @@ func get_skill_cooldowns() -> Array:
 	
 	return cooldowns
 
+## 获取角色位置
+func get_player_position() -> Vector3:
+	return global_position
 
-## 获取目标位置（示例：使用鼠标光线投射）
+## 获取目标位置 使用鼠标光线投射
 func get_target_position() -> Vector3:
 	var camera = get_viewport().get_camera_3d()
 	if camera == null:
