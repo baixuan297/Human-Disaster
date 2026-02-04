@@ -25,7 +25,7 @@ func _ready():
 ## 添加技能
 func add_skill(skill_resource: SkillResource, initial_level: int = 1) -> Skill:
 	if skills.has(skill_resource.skill_name):
-		push_warning("技能已存在: " + skill_resource.skill_name)
+		#push_warning("技能已存在: " + skill_resource.skill_name)
 		return skills[skill_resource.skill_name]
 	
 	# 创建技能实例

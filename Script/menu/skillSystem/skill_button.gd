@@ -47,6 +47,5 @@ func clear_skill() -> void:
 
 ## 按钮点击处理
 func _on_pressed() -> void:
-	print("skillButton Clicked")
 	if linked_skill:
 		skill_button_clicked.emit(linked_skill, self)
