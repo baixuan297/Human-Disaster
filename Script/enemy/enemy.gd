@@ -53,8 +53,8 @@ func _get_player_range() -> bool:
 func _hit_finished():
 	# 判断角色是否在攻击范围内并且是否获得被击中反馈 攻击范围+1
 	if global_position.distance_to(player.global_position) < attack_range + 1.0:
-		var dir = global_position.direction_to(player.global_position)
-		player.take_damage(dir)
+		#var dir = global_position.direction_to(player.global_position)
+		player.take_damage()
 
 func _on_died():
 	print("💀死亡！")

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WeaponAudioData" load_steps=6 format=3 uid="uid://b4e4wx24gbj2d"]
+
+[ext_resource type="AudioStream" uid="uid://dk2utammensur" path="res://素材/sound/gun/MP7/DryFire_Sound_Effect.wav" id="1_oxbhb"]
+[ext_resource type="AudioStream" uid="uid://hqcuiwsbofj3" path="res://素材/sound/gun/MP7/Equip_Sound_Effect.wav" id="2_c5fjx"]
+[ext_resource type="AudioStream" uid="uid://cfpevqwjt0p6a" path="res://素材/sound/gun/MP7/Reload_Sound_Effect.wav" id="3_1ifhy"]
+[ext_resource type="Script" uid="uid://2oqwng7sodpr" path="res://resource/gun/WeaponAudioData.gd" id="4_btfq6"]
+[ext_resource type="AudioStream" uid="uid://b3vdcjor5ctja" path="res://素材/sound/gun/MP7/Fire_Sound_Effect.wav" id="5_6ro3p"]
+
+[resource]
+script = ExtResource("4_btfq6")
+shoot_variations = Array[AudioStream]([ExtResource("5_6ro3p")])
+dry_fire_stream = ExtResource("1_oxbhb")
+reload_stream = ExtResource("3_1ifhy")
+equip_stream = ExtResource("2_c5fjx")
+metadata/_custom_type_script = "uid://2oqwng7sodpr"

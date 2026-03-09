@@ -42,8 +42,7 @@ var element_type: int = -1              # 元素类型（如果需要）
 var knockback_force: float = 0.0        # 击退力度
 
 
-## 工厂方法 - 快速创建标准攻击数据
-## 创建武器攻击数据
+## 工厂方法：由 WeaponManager（射线命中）或 Bullet（弹体命中）调用，构造武器伤害数据
 static func create_weapon_attack(weapon: WeaponData, attacker: Node = null) -> AttackData:
 	var attack := AttackData.new()
 	attack.source = AttackType.WEAPON

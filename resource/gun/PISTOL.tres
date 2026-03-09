@@ -1,16 +1,29 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=3 format=3 uid="uid://dgrr26hc41c5q"]
+[gd_resource type="Resource" script_class="WeaponData" load_steps=9 format=3 uid="uid://dgrr26hc41c5q"]
 
-[ext_resource type="PackedScene" uid="uid://gmuq8un6mbeh" path="res://blender/gun/bullet.tscn" id="1_2qnqg"]
+[ext_resource type="PackedScene" uid="uid://gmuq8un6mbeh" path="res://Scene/gunshoot/bullet.tscn" id="1_2qnqg"]
 [ext_resource type="Script" uid="uid://b82rehlfggawy" path="res://resource/gun/weapon_resource.gd" id="1_bscsr"]
+[ext_resource type="AudioStream" uid="uid://tfcuo6nix75d" path="res://素材/sound/gun/Pistol/DryFire_Sound_Effect.wav" id="1_d82eb"]
+[ext_resource type="AudioStream" uid="uid://br0hhtk7jqkla" path="res://素材/sound/gun/Pistol/Equip_Sound_Effect.wav" id="2_s8nkf"]
+[ext_resource type="AudioStream" uid="uid://bfbdd80gorvon" path="res://素材/sound/gun/Pistol/Reload_Sound_Effect.wav" id="3_glny5"]
+[ext_resource type="Script" uid="uid://2oqwng7sodpr" path="res://resource/gun/WeaponAudioData.gd" id="4_b3m1e"]
+[ext_resource type="AudioStream" uid="uid://mfd1swgkxlgw" path="res://素材/sound/gun/Pistol/Fire_Sound_Effect.wav" id="5_bweul"]
+
+[sub_resource type="Resource" id="Resource_gc8va"]
+script = ExtResource("4_b3m1e")
+shoot_variations = Array[AudioStream]([ExtResource("5_bweul")])
+dry_fire_stream = ExtResource("1_d82eb")
+reload_stream = ExtResource("3_glny5")
+equip_stream = ExtResource("2_s8nkf")
+metadata/_custom_type_script = "uid://2oqwng7sodpr"
 
 [resource]
 script = ExtResource("1_bscsr")
 Weapon_name = "PISTOL"
+weapon_slot = 1
 projectile_scene = ExtResource("1_2qnqg")
-Current_Ammo = 10
+Current_Ammo = 15
 Reserve_Ammo = 30
-magazine = 10
-Max_Ammo = 30
-crit_rate = 0.2
-crit_multiplier = 2.0
-fire_rate = 1.0
+magazine = 30
+Max_Ammo = 120
+fire_rate = 0.1
+audio_data = SubResource("Resource_gc8va")
