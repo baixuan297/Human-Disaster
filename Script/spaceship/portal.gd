@@ -11,13 +11,16 @@ func _on_entra_pressed():
 func _on_salir_pressed():
 	optionmenu.visible = false
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	
 
 
-func _on_area_entered(area):
-	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-	optionmenu.visible = true
+func _on_body_entered(body: Node3D) -> void:
+	if body.is_in_group("Player"):
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		optionmenu.visible = true
 
 
-func _on_area_exited(area):
-	optionmenu.visible = false
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+func _on_body_exited(body: Node3D) -> void:
+	if body.is_in_group("Player"):
+		optionmenu.visible = false
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
