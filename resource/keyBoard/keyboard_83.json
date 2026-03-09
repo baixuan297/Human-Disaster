@@ -1,0 +1,93 @@
+{
+	"row_0": [
+		{ "name": "ESC", "type": "SPECIAL" },
+		{ "name": "F1", "type": "NORMAL" },
+		{ "name": "F2", "type": "NORMAL" },
+		{ "name": "F3", "type": "NORMAL" },
+		{ "name": "F4", "type": "NORMAL" },
+		{ "name": "F5", "type": "NORMAL" },
+		{ "name": "F6", "type": "NORMAL" },
+		{ "name": "F7", "type": "NORMAL" },
+		{ "name": "F8", "type": "NORMAL" },
+		{ "name": "F9", "type": "NORMAL" },
+		{ "name": "F10", "type": "NORMAL" },
+		{ "name": "F11", "type": "NORMAL" },
+		{ "name": "F12", "type": "NORMAL" },
+		{ "name": "DEL", "type": "SPECIAL" },
+	],
+
+	"row_1": [
+		{ "name": "`", "type": "NORMAL" },
+		{ "name": "1", "type": "NORMAL" },
+		{ "name": "2", "type": "NORMAL" },
+		{ "name": "3", "type": "NORMAL" },
+		{ "name": "4", "type": "NORMAL" },
+		{ "name": "5", "type": "NORMAL" },
+		{ "name": "6", "type": "NORMAL" },
+		{ "name": "7", "type": "NORMAL" },
+		{ "name": "8", "type": "NORMAL" },
+		{ "name": "9", "type": "NORMAL" },
+		{ "name": "0", "type": "NORMAL" },
+		{ "name": "-", "type": "NORMAL" },
+		{ "name": "=", "type": "NORMAL" },
+		{ "name": "Backspace", "type": "SPECIAL_LONG" }
+	],
+
+	"row_2": [
+		{ "name": "Tab", "type": "SPECIAL" },
+		{ "name": "Q", "type": "NORMAL" },
+		{ "name": "W", "type": "NORMAL" },
+		{ "name": "E", "type": "NORMAL" },
+		{ "name": "R", "type": "NORMAL" },
+		{ "name": "T", "type": "NORMAL" },
+		{ "name": "Y", "type": "NORMAL" },
+		{ "name": "U", "type": "NORMAL" },
+		{ "name": "I", "type": "NORMAL" },
+		{ "name": "O", "type": "NORMAL" },
+		{ "name": "P", "type": "NORMAL" },
+		{ "name": "[", "type": "NORMAL" },
+		{ "name": "]", "type": "NORMAL" },
+		{ "name": "\\", "type": "SPECIAL" }
+	],
+
+	"row_3": [
+		{ "name": "Caps", "type": "SPECIAL_LONG" },
+		{ "name": "A", "type": "NORMAL" },
+		{ "name": "S", "type": "NORMAL" },
+		{ "name": "D", "type": "NORMAL" },
+		{ "name": "F", "type": "NORMAL" },
+		{ "name": "G", "type": "NORMAL" },
+		{ "name": "H", "type": "NORMAL" },
+		{ "name": "J", "type": "NORMAL" },
+		{ "name": "K", "type": "NORMAL" },
+		{ "name": "L", "type": "NORMAL" },
+		{ "name": ";", "type": "NORMAL" },
+		{ "name": "'", "type": "NORMAL" },
+		{ "name": "Enter", "type": "SPECIAL_LONG" }
+	],
+
+	"row_4": [
+		{ "name": "Shift_L", "type": "SPECIAL_LONG" },
+		{ "name": "Z", "type": "NORMAL" },
+		{ "name": "X", "type": "NORMAL" },
+		{ "name": "C", "type": "NORMAL" },
+		{ "name": "V", "type": "NORMAL" },
+		{ "name": "B", "type": "NORMAL" },
+		{ "name": "N", "type": "NORMAL" },
+		{ "name": "M", "type": "NORMAL" },
+		{ "name": ",", "type": "NORMAL" },
+		{ "name": ".", "type": "NORMAL" },
+		{ "name": "/", "type": "NORMAL" },
+		{ "name": "Shift_R", "type": "SPECIAL_LONG" }
+	],
+
+	"row_5": [
+		{ "name": "Ctrl_L", "type": "SPECIAL" },
+		{ "name": "Win", "type": "SPECIAL" },
+		{ "name": "Alt_L", "type": "SPECIAL" },
+		{ "name": "Space", "type": "LONG" },
+		{ "name": "Alt_R", "type": "SPECIAL" },
+		{ "name": "Fn", "type": "SPECIAL" },
+		{ "name": "Ctrl_R", "type": "SPECIAL" }
+	]
+}
