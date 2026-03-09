@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="SkillResource" load_steps=4 format=3 uid="uid://ccu2w4nqtsgs7"]
+
+[ext_resource type="PackedScene" uid="uid://c1i86k2gfhfqr" path="res://Scene/skill system/skill_effect/skill_group_healing.tscn" id="1_a5gqp"]
+[ext_resource type="Texture2D" uid="uid://c4q5vn4y0glrq" path="res://素材/image/skill/skillEffect/skillGroupHealing/group_healing_icon.png" id="2_x1jlj"]
+[ext_resource type="Script" uid="uid://de1wfk184qmhu" path="res://resource/skill/skillResource.gd" id="3_wji6n"]
+
+[resource]
+script = ExtResource("3_wji6n")
+skill_name = "Group Healing"
+description = "Group Headling"
+icon = ExtResource("2_x1jlj")
+base_damage = 20.0
+base_attack_power = 0.0
+base_range = 0.0
+base_duration = 5.0
+skill_type = 4
+cast_effect = ExtResource("1_a5gqp")
+metadata/_custom_type_script = "uid://de1wfk184qmhu"

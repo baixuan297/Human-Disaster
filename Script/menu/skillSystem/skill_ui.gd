@@ -15,7 +15,7 @@ extends Control
 
 ## 数据引用
 var character: Node3D  # 角色引用
-var skill_manager: SkillManager  # 技能管理器引用
+#var skill_manager: SkillManager  # 技能管理器引用
 
 ## 运行时数据
 var skill_buttons: Array[SkillButton] = []
@@ -39,12 +39,12 @@ func setup_character(_char: Node3D) -> void:
 		return
 	character = _char
 	
-	# 获取角色的技能管理器
-	skill_manager = character.get_node_or_null("SkillManager")
-	
-	if skill_manager == null:
-		push_error("角色没有 SkillManager 节点!")
-		return
+	## 获取角色的技能管理器
+	#skill_manager = character.get_node_or_null("SkillManager")
+	#
+	#if skill_manager == null:
+		#push_error("角色没有 SkillManager 节点!")
+		#return
 	
 	# 加载角色技能到按钮
 	_load_character_skills()
@@ -80,10 +80,12 @@ func _initialize_buttons() -> void:
 
 ## 加载角色技能到按钮
 func _load_character_skills() -> void:
-	if skill_manager == null:
-		return
+	#if skill_manager == null:
+		#return
 	print_debug("正确加载技能到技能面板中")
-	var available_skills = skill_manager.skills.values()
+	#var available_skills = skill_manager.skills.values()
+	var available_skills = SkillManager.skills.values()
+	
 	
 	# 遍历按钮，分配技能
 	for i in range(skill_buttons.size()):
@@ -164,7 +166,7 @@ func _on_skill_button_clicked(skill: Skill, button: SkillButton) -> void:
 
 ## 刷新显示（当技能升级等情况）
 func refresh_ui() -> void:
-	if skill_manager:
+	if SkillManager: # **
 		_load_character_skills()
 	
 	# 如果当前有选中的技能，刷新信息面板

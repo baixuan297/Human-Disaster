@@ -1,5 +1,5 @@
 ## 技能管理器 - 管理角色的所有技能
-class_name SkillManager
+#class_name SkillManager
 extends Node
 
 ## 信号
@@ -78,12 +78,15 @@ func use_skill(skill_name: String, target_position: Vector3 = Vector3.ZERO, targ
 func use_skill_from_bar(slot_index: int, target_position: Vector3 = Vector3.ZERO, target_node: Node3D = null) -> bool:
 	if slot_index < 0 or slot_index >= skill_bar.size():
 		return false
-	
 	var skill = skill_bar[slot_index]
 	if skill == null:
 		return false
-	
 	return skill.use(target_position, target_node)
+
+
+## 技能栏按槽位释放（与 use_skill_from_bar 等价，便于循环调用）
+func use_slot(slot_index: int, target_position: Vector3 = Vector3.ZERO, target_node: Node3D = null) -> bool:
+	return use_skill_from_bar(slot_index, target_position, target_node)
 
 ## 将技能添加到快捷栏
 func add_to_skill_bar(skill_name: String, slot_index: int) -> bool:
