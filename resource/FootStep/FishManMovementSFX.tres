@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="FootStepAudioData" load_steps=31 format=3 uid="uid://bo5vo3mr7lr3h"]
+
+[ext_resource type="AudioStream" uid="uid://dhghghgfjdh8t" path="res://素材/sound/player/jump.wav" id="1_2kbur"]
+[ext_resource type="AudioStream" uid="uid://b5blxffnntfej" path="res://素材/sound/player/crouch_walking1.wav" id="1_t5s2n"]
+[ext_resource type="AudioStream" uid="uid://ceampainj06jy" path="res://素材/sound/player/landing.wav" id="2_8s4x4"]
+[ext_resource type="AudioStream" uid="uid://ge1ei8ke6unf" path="res://素材/sound/player/crouch_walking2.wav" id="2_kmubb"]
+[ext_resource type="AudioStream" uid="uid://bqa1nbjmgsmtc" path="res://素材/sound/player/crouch_walking3.wav" id="3_x83h7"]
+[ext_resource type="AudioStream" uid="uid://d4kgfafyp3onq" path="res://素材/sound/player/run_step1.wav" id="3_y423p"]
+[ext_resource type="AudioStream" uid="uid://bkf48iarrtnaq" path="res://素材/sound/player/run_step2.wav" id="4_t5s2n"]
+[ext_resource type="AudioStream" uid="uid://dxc2ssjlnn8a2" path="res://素材/sound/player/run_step3.wav" id="5_kmubb"]
+[ext_resource type="AudioStream" uid="uid://ckdv7a26mdeue" path="res://素材/sound/player/run_step4.wav" id="6_x83h7"]
+[ext_resource type="AudioStream" uid="uid://cdt4f21luhyhs" path="res://素材/sound/player/run_step5.wav" id="7_mglhi"]
+[ext_resource type="AudioStream" uid="uid://b77irmuj4krbq" path="res://素材/sound/player/run_step6.wav" id="8_5ahnv"]
+[ext_resource type="AudioStream" uid="uid://g24mi462cagt" path="res://素材/sound/player/run_step7.wav" id="9_3pke7"]
+[ext_resource type="AudioStream" uid="uid://doodchc6vdsce" path="res://素材/sound/player/run_step8.wav" id="10_ks71v"]
+[ext_resource type="AudioStream" uid="uid://jqsr31tf4d6w" path="res://素材/sound/player/run_step9.wav" id="11_ofy7m"]
+[ext_resource type="AudioStream" uid="uid://dhs7g1xbom5py" path="res://素材/sound/player/run_step10.wav" id="12_ub62i"]
+[ext_resource type="AudioStream" uid="uid://bfdp3kispt8jh" path="res://素材/sound/player/run_step11.wav" id="13_5e0cd"]
+[ext_resource type="AudioStream" uid="uid://bey6oyf1yoxk4" path="res://素材/sound/player/run_step12.wav" id="14_r5cd0"]
+[ext_resource type="AudioStream" uid="uid://dcqldcriwuf4a" path="res://素材/sound/player/run_step13.wav" id="15_rwq44"]
+[ext_resource type="AudioStream" uid="uid://b55km3xh562x7" path="res://素材/sound/player/run_step14.wav" id="16_drdp7"]
+[ext_resource type="AudioStream" uid="uid://cdtlxbwv46bms" path="res://素材/sound/player/run_step15.wav" id="17_gmi5n"]
+[ext_resource type="AudioStream" uid="uid://bu6crucdbhi2h" path="res://素材/sound/player/run_step16.wav" id="18_81uhp"]
+[ext_resource type="AudioStream" uid="uid://no7ouxcknqdx" path="res://素材/sound/player/run_step17.wav" id="19_7wvap"]
+[ext_resource type="AudioStream" uid="uid://cgkwkkxmlfme4" path="res://素材/sound/player/run_step18.wav" id="20_5psfq"]
+[ext_resource type="AudioStream" uid="uid://c64pwk08c4g7b" path="res://素材/sound/player/run_step19.wav" id="21_w6dp8"]
+[ext_resource type="AudioStream" uid="uid://cfqpsl6gw0d" path="res://素材/sound/player/run_step20.wav" id="22_cexig"]
+[ext_resource type="AudioStream" uid="uid://ccfrmg8f0qwlp" path="res://素材/sound/player/run_step21.wav" id="23_el286"]
+[ext_resource type="AudioStream" uid="uid://c787sgk2yfjfu" path="res://素材/sound/player/run_step22.wav" id="24_te6iv"]
+[ext_resource type="AudioStream" uid="uid://12dq7o6lbtdb" path="res://素材/sound/player/run_step23.wav" id="25_arf23"]
+[ext_resource type="Script" uid="uid://dlnamjuyjhfa6" path="res://resource/FootStep/footStep.gd" id="26_revni"]
+[ext_resource type="AudioStream" uid="uid://cyysrq52lr8ko" path="res://素材/sound/player/walking.wav" id="27_ywmr3"]
+
+[resource]
+script = ExtResource("26_revni")
+walk_steps = Array[AudioStream]([ExtResource("27_ywmr3")])
+run_steps = Array[AudioStream]([ExtResource("3_y423p"), ExtResource("4_t5s2n"), ExtResource("5_kmubb"), ExtResource("6_x83h7"), ExtResource("7_mglhi"), ExtResource("8_5ahnv"), ExtResource("9_3pke7"), ExtResource("10_ks71v"), ExtResource("11_ofy7m"), ExtResource("12_ub62i"), ExtResource("13_5e0cd"), ExtResource("14_r5cd0"), ExtResource("15_rwq44"), ExtResource("16_drdp7"), ExtResource("17_gmi5n"), ExtResource("18_81uhp"), ExtResource("19_7wvap"), ExtResource("20_5psfq"), ExtResource("21_w6dp8"), ExtResource("22_cexig"), ExtResource("23_el286"), ExtResource("24_te6iv"), ExtResource("25_arf23")])
+crouch_sound = Array[AudioStream]([ExtResource("1_t5s2n"), ExtResource("2_kmubb"), ExtResource("3_x83h7")])
+jump_sound = ExtResource("1_2kbur")
+land_sound = ExtResource("2_8s4x4")
+metadata/_custom_type_script = "uid://dlnamjuyjhfa6"

@@ -1,0 +1,71 @@
+<svg viewBox="0 0 400 600" width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+
+<defs>
+
+<!-- Body gradient -->
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#F3F4F6"/>
+<stop offset="100%" stop-color="#D1D5DB"/>
+</linearGradient>
+
+<!-- subtle shadow -->
+<filter id="shadow">
+<feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.15"/>
+</filter>
+
+<!-- metal wheel -->
+<linearGradient id="wheel">
+<stop offset="0%" stop-color="#9CA3AF"/>
+<stop offset="50%" stop-color="#E5E7EB"/>
+<stop offset="100%" stop-color="#9CA3AF"/>
+</linearGradient>
+
+</defs>
+
+<!-- mouse body -->
+<rect
+x="90"
+y="80"
+width="220"
+height="460"
+rx="110"
+fill="url(#body)"
+filter="url(#shadow)"
+/>
+
+<!-- center split line -->
+<line
+x1="200"
+y1="90"
+x2="200"
+y2="300"
+stroke="#9CA3AF"
+stroke-width="2"
+/>
+
+<!-- button separation -->
+<line
+x1="110"
+y1="300"
+x2="290"
+y2="300"
+stroke="#9CA3AF"
+stroke-width="2"
+/>
+
+<!-- scroll wheel -->
+<rect
+x="188"
+y="120"
+width="24"
+height="70"
+rx="12"
+fill="url(#wheel)"
+/>
+
+<!-- wheel texture -->
+<line x1="192" y1="135" x2="208" y2="135" stroke="#6B7280"/>
+<line x1="192" y1="150" x2="208" y2="150" stroke="#6B7280"/>
+<line x1="192" y1="165" x2="208" y2="165" stroke="#6B7280"/>
+
+</svg>
