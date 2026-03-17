@@ -25,6 +25,7 @@ var scenes: Dictionary = {
 	"main_menu": "res://Scene/menu/main_menu3d.tscn",
 	"game": "res://Scene/map/world.tscn",
 	"pause": "res://Scene/menu/pausa.tscn",
+	"training_ground": "res://Scene/map/training/training_ground.tscn"
 }
 # 这两个的区别是，一个是保存可以快速加载的场景的预设
 # 一个是用来加载场景中的UI，比如背包，地图，抽卡（如果有， 等。

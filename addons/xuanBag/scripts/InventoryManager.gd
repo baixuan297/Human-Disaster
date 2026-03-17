@@ -308,3 +308,30 @@ func find_item_index(item: InventoryItem) -> int:
 		if items[i] and items[i] == item:
 			return i
 	return -1
+
+## 存档用：导出可序列化的背包数据（按槽位，空槽为 null）
+func get_serializable_inventory() -> Array:
+	var result: Array = []
+	result.resize(max_slots)
+	for i in range(max_slots):
+		if items[i]:
+			result[i] = { "id": items[i].data.id, "qty": items[i].quantity }
+		else:
+			result[i] = null
+	return result
+
+## 存档用：从序列化数据恢复背包（会清空当前背包再按槽位恢复）
+func load_serializable_inventory(data: Array) -> void:
+	clear()
+	var n = mini(data.size(), max_slots)
+	for i in range(n):
+		var entry = data[i]
+		if entry != null and typeof(entry) == TYPE_DICTIONARY:
+			var id_val = entry.get("id", "")
+			var qty = int(entry.get("qty", 1))
+			var id_str := str(id_val) if id_val != null and id_val != "" else ""
+			if id_str != "":
+				var item_data = item_database.get_item_data(id_str)
+				if item_data:
+					items[i] = InventoryItem.new(item_data, qty)
+	inventory_changed.emit()

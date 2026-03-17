@@ -118,57 +118,40 @@ func login(username: String, password: String, callback: Callable) -> void:
 	make_request("/login", HTTPClient.METHOD_POST, {"username": username, "password": password}, callback)
 
 # 获取个人信息（带 token）
-func get_me() -> void:
-	make_request("/me", HTTPClient.METHOD_GET)
+func get_me(callback: Callable = Callable()) -> void:
+	make_request("/me", HTTPClient.METHOD_GET, {}, callback)
 
-## === 用户属性API ===
-#
-## 获取用户属性
-#func get_user_stats(user_id: int, callback: Callable) -> void:
-	#make_request("/user/" + str(user_id) + "/stats", HTTPClient.METHOD_GET, {}, callback)
-#
-## 更新用户属性
-#func update_user_stats(user_id: int, stats: Dictionary, callback: Callable) -> void:
-	#make_request("/user/" + str(user_id) + "/stats", HTTPClient.METHOD_PUT, stats, callback)
+## === 角色 API（与数据库 game.characters 对齐） ===
+## 建角/列表后得到 character_id（UUID 字符串），用于背包与技能接口
+func list_characters(callback: Callable = Callable()) -> void:
+	make_request("/characters", HTTPClient.METHOD_GET, {}, callback)
 
-## === 背包API ===
-#
-## 获取用户背包
-#func get_user_inventory(user_id: int, callback: Callable) -> void:
-	#make_request("/user/" + str(user_id) + "/inventory", HTTPClient.METHOD_GET, {}, callback)
-#
-## 添加物品到背包
-#func add_inventory_item(user_id: int, item_id: int, quantity: int, callback: Callable) -> void:
-	#make_request("/user/" + str(user_id) + "/inventory", HTTPClient.METHOD_POST, {
-		#"item_id": item_id,
-		#"quantity": quantity
-	#}, callback)
-#
-## 更新物品信息
-#func update_item(user_id: int, item_id: int, quantity: int, callback: Callable):
-	#make_request("/user/" + str(user_id) + "/inventory", HTTPClient.METHOD_POST, {
-				#"item_id": item_id,
-				#"quantity": quantity
-			#}, callback)
-#
-## 从背包移除物品
-#func remove_inventory_item(user_id: int, item_id: int, quantity: int, callback: Callable) -> void:
-	#make_request("/user/" + str(user_id) + "/inventory/" + str(item_id) + "?quantity=" + str(quantity), HTTPClient.METHOD_DELETE, {}, callback)
+func create_character(name: String, server_id: int, character_class: String, callback: Callable = Callable()) -> void:
+	var data := {
+		"name": name,
+		"server_id": server_id,
+		"character_class": character_class
+	}
+	make_request("/characters", HTTPClient.METHOD_POST, data, callback)
 
-## === 状态API ===
-#
-## 获取用户状态
-#func get_user_status(user_id: int, callback: Callable) -> void:
-	#make_request("/user/" + str(user_id) + "/status", HTTPClient.METHOD_GET, {}, callback)
-#
-## 添加用户状态
-#func add_user_status(user_id: int, status_name: String, status_value: String = "", expires_at: String = "", callback: Callable = Callable()) -> void:
-	#var data = {
-		#"status_name": status_name,
-		#"status_value": status_value
-	#}
-	#
-	#if expires_at != "":
-		#data["expires_at"] = expires_at
-	#
-	#make_request("/user/" + str(user_id) + "/status", HTTPClient.METHOD_POST, data, callback)
+## === 背包API（使用角色 ID） ===
+##
+## slots 建议直接传 InventoryManager.get_serializable_inventory() 的结果：
+## [ { "id": 101, "qty": 3 }, null, { "id": 205, "qty": 1 }, ... ]
+func save_inventory(character_id: String, slots: Array, callback: Callable = Callable()) -> void:
+	var data := {"slots": slots}
+	make_request("/characters/%s/inventory" % character_id, HTTPClient.METHOD_POST, data, callback)
+
+func load_inventory(character_id: String, callback: Callable) -> void:
+	make_request("/characters/%s/inventory" % character_id, HTTPClient.METHOD_GET, {}, callback)
+
+## === 技能API（使用角色 ID） ===
+##
+## skills_dict 可以直接用 SkillManager.save_skills_data() 返回值：
+## { "Fireball": { "level": 3, "cooldown_remaining": 0.5 }, ... }
+func save_skills(character_id: String, skills_dict: Dictionary, callback: Callable = Callable()) -> void:
+	var data := {"skills": skills_dict}
+	make_request("/characters/%s/skills" % character_id, HTTPClient.METHOD_POST, data, callback)
+
+func load_skills(character_id: String, callback: Callable) -> void:
+	make_request("/characters/%s/skills" % character_id, HTTPClient.METHOD_GET, {}, callback)

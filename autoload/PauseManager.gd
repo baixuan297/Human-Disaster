@@ -145,6 +145,7 @@ func close_pause_menu() -> void:
 
 ## 退出到主菜单
 func exit_to_main_menu() -> void:
+	_save_player_data_to_api()
 	# 移除暂停菜单
 	if pause_menu_instance:
 		pause_menu_instance.queue_free()
@@ -159,6 +160,21 @@ func exit_to_main_menu() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	# 切换到主菜单场景
 	SceneManager.change_scene("main_menu")
+
+
+## 将背包和技能保存到 API
+func _save_player_data_to_api() -> void:
+	var cid := UserManager.current_character_id
+	if cid.is_empty():
+		return
+	ApiManager.save_inventory(cid, InventoryManager.get_serializable_inventory(), func(success, _resp):
+		if success:
+			print("背包已保存到服务器")
+	)
+	ApiManager.save_skills(cid, SkillManager.save_skills_data(), func(success, _resp):
+		if success:
+			print("技能已保存到服务器")
+	)
 
 
 ## 背包控制
