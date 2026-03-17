@@ -6,7 +6,8 @@ var skill_level: int = 1
 var caster: Node = null
 
 var duration: float = 3.0
-var tick_interval: float = 0.25    # 伤害触发间隔
+## 伤害与音效触发间隔（秒）；例如 0.25 表示每 0.25s 一次雷击
+var tick_interval: float = 0.25
 var timer: float = 0.0
 var tick_timer: float = 0.0
 
@@ -34,6 +35,8 @@ func _process(delta: float) -> void:
 
 ## 核心伤害逻辑
 func _apply_tick_damage() -> void:
+	# 每次 tick 都播放一次雷击音效（使用技能资源的 hit_sound；若未设置则回退到 cast_sound）
+	_play_tick_sound()
 	if targets_in_range.is_empty():
 		return
 		
@@ -53,3 +56,17 @@ func _apply_tick_damage() -> void:
 func _on_hit_area_area_entered(area: Area3D) -> void:
 	if area.is_in_group("enemy") and not targets_in_range.has(area):
 		targets_in_range.append(area)
+
+
+## 每次 tick 播放的雷击音效
+func _play_tick_sound() -> void:
+	if skill_resource == null or caster == null:
+		return
+	var stream: AudioStream = skill_resource.hit_sound if skill_resource.hit_sound != null else skill_resource.cast_sound
+	if stream == null:
+		return
+	var audio_player := AudioStreamPlayer3D.new()
+	audio_player.stream = stream
+	add_child(audio_player)
+	audio_player.play()
+	audio_player.finished.connect(audio_player.queue_free)

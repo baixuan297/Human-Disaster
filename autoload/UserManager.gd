@@ -5,6 +5,8 @@ const SAVE_PATH = "user://users.dat"
 const CREDENTIALS_PATH = "user://credentials.dat"
 
 var local_users = {}
+## 当前角色 ID，登录成功后由 /me 接口填充，用于背包/技能 API
+var current_character_id: String = ""
 
 func _init():
 	_load_local_users()
@@ -36,11 +38,9 @@ func user_login(username: String, password: String) -> bool:
 	ApiManager.login(username, password, func(success, data):
 		if success:
 			print("✅ 登录成功，token=", ApiManager.jwt_token)
-			
-			#return true
+			_fetch_character_id()
 		else:
 			print("❌ 登录失败:", data)
-			return false
 		)
 	
 	return true
@@ -125,6 +125,24 @@ func load_credentials() -> Dictionary:
 func clear_credentials():
 	if FileAccess.file_exists(CREDENTIALS_PATH):
 		DirAccess.remove_absolute(CREDENTIALS_PATH)
+
+# ============ 角色 ID（用于背包/技能 API，来自 GET /characters） ============
+
+func _fetch_character_id() -> void:
+	ApiManager.list_characters(func(success, data):
+		if success and typeof(data) == TYPE_ARRAY and data.size() > 0:
+			var first = data[0]
+			if typeof(first) == TYPE_DICTIONARY and first.has("character_id"):
+				current_character_id = str(first["character_id"])
+			elif typeof(first) == TYPE_DICTIONARY and first.has("id"):
+				current_character_id = str(first["id"])
+			else:
+				current_character_id = ""
+			print("✅ 角色 ID 已更新: ", current_character_id)
+		else:
+			current_character_id = ""
+			print("未获取到角色列表，请先创建角色")
+	)
 
 # ============ 工具函数 ============
 

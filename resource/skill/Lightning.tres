@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="SkillResource" load_steps=4 format=3 uid="uid://vw8peayxmgvv"]
+[gd_resource type="Resource" script_class="SkillResource" load_steps=5 format=3 uid="uid://vw8peayxmgvv"]
 
 [ext_resource type="PackedScene" uid="uid://bv13f7k44xbuo" path="res://Scene/skill system/skill_effect/skill_lightning.tscn" id="1_jcgki"]
+[ext_resource type="AudioStream" uid="uid://dmrhwbej0x1dl" path="res://素材/sound/skill/lightning.wav" id="2_7rxp6"]
 [ext_resource type="Texture2D" uid="uid://qhnjaw0b73aq" path="res://素材/image/skill/skillEffect/skillLightning/lightning_icon.png" id="2_s5xwh"]
 [ext_resource type="Script" uid="uid://de1wfk184qmhu" path="res://resource/skill/skillResource.gd" id="3_7rxp6"]
 
@@ -13,4 +14,5 @@ base_attack_power = 0.0
 base_duration = 3.0
 skill_type = 2
 cast_effect = ExtResource("1_jcgki")
+cast_sound = ExtResource("2_7rxp6")
 metadata/_custom_type_script = "uid://de1wfk184qmhu"

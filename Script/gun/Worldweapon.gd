@@ -1,18 +1,3 @@
-#extends Node3D
-#
-#@export var data: WeaponData
-#var can_fire: bool = true
-#
-#func attack(_owner) -> void:
-	#if not can_fire:
-		#return
-	#can_fire = false
-#
-	##fire_projectile(_owner)
-#
-	#await get_tree().create_timer(data.fire_rate).timeout
-	#can_fire = true
-
 extends RigidBody3D
 class_name WorldWeapon
 
@@ -23,10 +8,8 @@ class_name WorldWeapon
 ##   - WeaponData.tres 只存数值（弹药、伤害、射速等），不引用任何 .tscn。
 ##   - 场景引用由本节点持有：weapon_scene / viewmodel_scene / model_scene，
 ##     避免 .tres 引用 .tscn 造成的循环依赖与加载顺序问题。
-##
-## 【调用链】Player 射线检测 "weapon_pickup" 分组 → collider.pickup(weapon_manager)
-##           → equip_weapon(data.duplicate(), weapon_scene, viewmodel_scene)
-##           → 本节点 queue_free()，武器逻辑转入 WeaponManager 槽位。
+#### 【调用链】Player 射线检测 "weapon_pickup" / "Interactable" → collider.interact(player)
+##           → pickup(player.weapon_manager) → equip_weapon(...) → 本节点 queue_free()
 ##
 ## 【推荐场景树】
 ##   WorldWeapon (RigidBody3D)
@@ -48,6 +31,10 @@ signal picked_up(weapon_data: WeaponData)
 ## 世界中 3D 展示模型（可选），_ready 时实例化到本节点下
 @export var model_scene: PackedScene
 
+# ──── 交互提示（与 Interactable 一致，由 interactray 射线命中时显示）────
+@export var prompt_action: StringName = &"interactable"
+@export var prompt_text: String = "Pick Up"
+
 # ──── 行为选项 ────
 ## 生成时是否重置为满弹
 @export var reset_ammo_on_spawn:   bool = true
@@ -65,7 +52,9 @@ var _is_picking_up: bool  = false
 
 
 func _ready() -> void:
+	# 供 InteractionComponent 识别可拾取武器；Interactable 供 interactray 显示「拾取 [E]」提示
 	add_to_group("weapon_pickup")
+	add_to_group("Interactable")
 
 	if weapon_data == null:
 		push_error("WorldWeapon [%s]: weapon_data 未设置" % name)
@@ -99,7 +88,30 @@ func _process(delta: float) -> void:
 
 
 # ═══════════════════════════════════════════════════════════════
-#  公开 API（仅由 Player 交互射线检测后调用）
+#  Interactable 接口（与 interact.gd 一致，供 interactray 显示提示并调用）
+# ═══════════════════════════════════════════════════════════════
+
+## 返回当前按键的提示文案，供交互射线 UI 显示（格式与 interact.gd 的 Interactable 一致）
+func get_prompt() -> String:
+	var key_name := ""
+	for action in InputMap.action_get_events(prompt_action):
+		if action is InputEventKey:
+			key_name = OS.get_keycode_string(action.physical_keycode)
+	return prompt_text + "\n\n[" + key_name + "]"
+
+
+## 玩家按交互键时由 InteractionComponent 调用。从 player 取 weapon_manager 后转发到 pickup()，
+## 与门、机器等统一走 interact(player) 流程。
+func interact(player_node: Node = null) -> void:
+	if player_node == null:
+		return
+	var wm = player_node.get("weapon_manager")
+	if wm is WeaponManager:
+		pickup(wm)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  公开 API（仅由 interact(player) 或直接 pickup 调用）
 # ═══════════════════════════════════════════════════════════════
 
 ## 捡起武器：将数据副本与场景引用交给 WeaponManager，本节点随后销毁。

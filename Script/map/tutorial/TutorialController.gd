@@ -4,11 +4,15 @@ extends Node3D
 ## 当本阶段操作全部完成时，关闭对应空气墙（movementPart / jumpCrouchPart / WeaponPart）。
 
 ## WALK 阶段空气墙（完成 WASD 后关闭）
-@onready var _movement_part: StaticBody3D = $movementPart
+@onready var _movement_part: StaticBody3D = $Part/movementPart
 ## JUMP_CROUCH 阶段空气墙（完成蹲跳奔跑后关闭）
-@onready var _jump_crouch_part: StaticBody3D = $jumpCrouchPart
+@onready var _jump_crouch_part: StaticBody3D = $Part/jumpCrouchPart
 ## WEAPON 阶段空气墙（完成武器操作后关闭）
-@onready var _weapon_part: StaticBody3D = $WeaponPart
+@onready var _weapon_part: StaticBody3D = $Part/WeaponPart
+## WEAPON 阶段空气墙（完成武器操作后关闭）
+@onready var _skill_part: StaticBody3D = $Part/SkillPart
+
+@onready var weapon_position: Node3D = $weapon_position
 
 
 func _ready() -> void:
@@ -33,9 +37,26 @@ func _on_step_completed(step: TutorialManager.Step) -> void:
 			wall = _jump_crouch_part
 		TutorialManager.Step.WEAPON:
 			wall = _weapon_part
+		TutorialManager.Step.SKILL:
+			wall = _skill_part
 	if not wall:
 		return
 	for child in wall.get_children():
 		if child is CollisionShape3D:
 			child.disabled = true
-	
+		
+# TODO： 改为当前一个阶段完成武器系统使用动画显现 但是这个只是暂时教学系统
+## 当角色进入后显示武器
+func _on_zone_weapon_body_entered(body: Node3D) -> void:
+	if body is CharacterBody3D:
+		weapon_position.visible = true
+
+func _on_zone_weapon_body_exited(body: Node3D) -> void:
+	if body is CharacterBody3D:
+		weapon_position.visible = false
+
+func _on_teleport_area_body_entered(body: Node3D) -> void:
+	if body is CharacterBody3D:
+		ScreenEffect.cutscene_fade_out(1.0)
+		#await get_tree().create_timer(2.0).timeout
+		SceneManager.change_scene("training_ground")
