@@ -1,10 +1,14 @@
-## 技能UI主控制器 - 负责协调按钮和信息面板
+## 技能UI主控制器 - 负责协调按钮、信息面板和连接线特效
 extends Control
 
 ## 动画配置
 @export var button_animation_duration: float = 0.3
 @export var animation_curve: Tween.TransitionType = Tween.TRANS_BACK 
 @export var animation_ease: Tween.EaseType = Tween.EASE_OUT
+
+## 连接线配置
+@export var line_shader: Shader
+@export var line_width: float = 70.0
 
 ## 节点引用
 @onready var skill_tree_button: Button = $skillTreeButton
@@ -14,23 +18,29 @@ extends Control
 @onready var skill_buttons_node: Control = $skill_buttons_node
 
 ## 数据引用
-var character: Node3D  # 角色引用
-#var skill_manager: SkillManager  # 技能管理器引用
+var character: Node3D
+#var skill_manager: SkillManager
 
 ## 运行时数据
 var skill_buttons: Array[SkillButton] = []
 var is_expanded: bool = false
 var current_selected_button: SkillButton = null
 
+## 连接线运行时数据
+var connection_lines: Array[Line2D] = []
+var line_materials: Array[ShaderMaterial] = []
+
 func _ready() -> void:
-	# 收集所有技能按钮
 	_collect_skill_buttons()
-	
-	# 初始化按钮状态
 	_initialize_buttons()
+	_create_connection_lines()
 	
 	var player = get_tree().get_first_node_in_group("Player")
 	setup_character(player)
+
+func _process(_delta: float) -> void:
+	if is_expanded or _any_line_visible():
+		_update_line_positions()
 
 
 ## 设置角色引用（从外部调用）
@@ -98,12 +108,12 @@ func _load_character_skills() -> void:
 			# 没有技能，清空/隐藏
 			btn.clear_skill()
 
-## 展开/收起按钮动画
+## 展开/收起按钮动画（同步驱动连接线生长）
 func _animate_buttons() -> void:
 	var tween = create_tween().set_parallel(true)
 	
-	for btn in skill_buttons:
-		# 只动画有技能的按钮
+	for i in range(skill_buttons.size()):
+		var btn = skill_buttons[i]
 		if btn.linked_skill == null and not is_expanded:
 			continue
 		
@@ -116,6 +126,9 @@ func _animate_buttons() -> void:
 			target_scale = Vector2.ONE
 			target_alpha = 1.0
 			btn.visible = true
+			# 显示对应连接线
+			if i < connection_lines.size():
+				connection_lines[i].visible = true
 		else:
 			if skill_tree_button:
 				target_pos = skill_tree_button.position + skill_tree_button.size / 2 - btn.size / 2
@@ -132,18 +145,33 @@ func _animate_buttons() -> void:
 		
 		tween.tween_property(btn, "modulate:a", target_alpha, button_animation_duration * 0.8)
 	
-	# 收起时隐藏信息面板
+	# 连接线 progress 动画
+	for i in range(line_materials.size()):
+		var mat = line_materials[i]
+		if is_expanded:
+			mat.set_shader_parameter("progress", 0.0)
+			tween.tween_method(
+				func(val: float) -> void: mat.set_shader_parameter("progress", val),
+				0.0, 1.0, button_animation_duration
+			).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		else:
+			tween.tween_method(
+				func(val: float) -> void: mat.set_shader_parameter("progress", val),
+				1.0, 0.0, button_animation_duration * 0.6
+			).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	
 	if not is_expanded:
 		if skill_info_panel and skill_info_panel.has_method("hide_panel"):
 			skill_info_panel.hide_panel()
 		current_selected_button = null
 		
-		# 动画结束后隐藏按钮
 		tween.chain().tween_callback(func():
 			if not is_expanded:
 				for btn in skill_buttons:
 					if btn.linked_skill == null:
 						btn.visible = false
+				for line in connection_lines:
+					line.visible = false
 		)
 
 ## 主按钮点击
@@ -166,10 +194,62 @@ func _on_skill_button_clicked(skill: Skill, button: SkillButton) -> void:
 
 ## 刷新显示（当技能升级等情况）
 func refresh_ui() -> void:
-	if SkillManager: # **
+	if SkillManager:
 		_load_character_skills()
 	
-	# 如果当前有选中的技能，刷新信息面板
 	if current_selected_button and current_selected_button.linked_skill:
 		if skill_info_panel and skill_info_panel.has_method("show_skill_info"):
 			skill_info_panel.show_skill_info(current_selected_button.linked_skill)
+
+# ===================== 连接线 =====================
+
+## 为每个技能按钮创建一条 Line2D（带着色器材质）
+func _create_connection_lines() -> void:
+	for line in connection_lines:
+		line.queue_free()
+	connection_lines.clear()
+	line_materials.clear()
+	
+	for btn in skill_buttons:
+		var line := Line2D.new()
+		line.width = line_width
+		line.default_color = Color.WHITE
+		line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		line.end_cap_mode = Line2D.LINE_CAP_ROUND
+		line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
+		line.visible = false
+		line.points = PackedVector2Array([Vector2.ZERO, Vector2.ZERO])
+		
+		if line_shader:
+			var mat := ShaderMaterial.new()
+			mat.shader = line_shader
+			mat.set_shader_parameter("progress", 0.0)
+			line.material = mat
+			line_materials.append(mat)
+		
+		add_child(line)
+		move_child(line, skill_buttons_node.get_index())
+		connection_lines.append(line)
+
+## 获取节点在 SkillUI 本地坐标中的中心点
+func _get_center_in_local(node: Control) -> Vector2:
+	var center_global := node.global_position + node.size * node.scale * 0.5
+	return center_global - global_position
+
+## 每帧更新线的端点，跟随按钮运动
+func _update_line_positions() -> void:
+	if not skill_tree_button:
+		return
+	var start := _get_center_in_local(skill_tree_button)
+	for i in range(mini(connection_lines.size(), skill_buttons.size())):
+		var line := connection_lines[i]
+		if not line.visible:
+			continue
+		var end := _get_center_in_local(skill_buttons[i])
+		line.points = PackedVector2Array([start, end])
+
+func _any_line_visible() -> bool:
+	for line in connection_lines:
+		if line.visible:
+			return true
+	return false

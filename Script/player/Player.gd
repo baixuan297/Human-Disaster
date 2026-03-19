@@ -160,6 +160,10 @@ func _ready() -> void:
 	_setup_player_stats()
 	_setup_skills()
 	SkillManager.skill_used.connect(_on_skill_used)
+	# 从快照或 API 恢复数据（必须在 _setup_player_stats / _setup_skills 之后）
+	CharacterDataManager.restore_to_player(self)
+	# 临时测试：基因系统链路验证（延迟执行，等待 GameDataManager 加载）
+	get_tree().create_timer(1.5).timeout.connect(_test_gene_system, CONNECT_ONE_SHOT)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -202,6 +206,7 @@ func _setup_components() -> void:
 		self
 	)
 	player_ui_controller.setup(
+		$UI,
 		health_bar,
 		health_label,
 		crosshair,
@@ -267,10 +272,12 @@ func _on_input_throw() -> void:
 	interaction_component.on_throw_pressed()
 
 func _on_skill_slot_pressed(slot_index: int) -> void:
+	var target_pos := get_target_position()
+	var target_node := get_target_node()
 	if slot_index == 2:
-		SkillManager.use_slot(slot_index, get_player_position())
+		SkillManager.use_slot(slot_index, get_player_position(), target_node)
 	else:
-		SkillManager.use_slot(slot_index, get_target_position())
+		SkillManager.use_slot(slot_index, target_pos, target_node)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -322,35 +329,55 @@ func _update_body_visibility() -> void:
 # ═══════════════════════════════════════════════════════════════
 
 func _setup_player_stats() -> void:
-	max_health = playerStats.current_max_health
-	health = playerStats.current_max_health
-	health_changed.emit(health, max_health)
+	playerStats.health_changed.connect(_on_stats_health_changed)
 	playerStats.died.connect(_on_player_died)
+	GeneManager.genes_changed.connect(playerStats.recalculate_stats)
+	health = playerStats.current_health
+	max_health = playerStats.current_max_health
+	# 初始发送当前值（restore_to_player 之后会再次触发 health_changed）
+	health_changed.emit(playerStats.current_health, playerStats.current_max_health)
 
 
-## 受到来自敌人的攻击（外部调用）；受击与血量由信号驱动 UI
-func take_damage() -> void:
+func _on_stats_health_changed(cur: float, max_val: float) -> void:
+	health = cur
+	max_health = max_val
+	health_changed.emit(cur, max_val)
+
+
+## 接收 AttackData（技能/武器统一受击接口）
+func apply_attack_data(attack_data: AttackData) -> void:
 	player_hit.emit()
-	damage()
+	playerStats.apply_attack_data(attack_data)
 
 
-## 扣血（TODO: 接收 AttackData 而非固定 -10）
-func damage() -> void:
-	health -= 10.0
-	if health <= 0.0:
-		_on_player_died()
-	health_changed.emit(health, max_health)
+## 受到来自敌人的攻击（支持 AttackData 防御减伤）
+func take_damage(attack_data: AttackData = null) -> void:
+	player_hit.emit()
+	if attack_data == null:
+		var fallback := AttackData.new()
+		fallback.source = AttackData.AttackType.WEAPON
+		fallback.base_damage = 10.0
+		fallback.final_damage = maxf(10.0 - playerStats.current_defense, 1.0)
+		attack_data = fallback
+	playerStats.take_damage(attack_data)
 
 
-func apply_healing(amount: int) -> void:
-	health = clamp(health + amount, 0.0, max_health)
-	health_changed.emit(health, max_health)
+func apply_healing(amount: float) -> void:
+	playerStats.heal(amount)
 
 
 func _on_player_died() -> void:
-	health = max_health
+	health = playerStats.current_max_health
+	max_health = playerStats.current_max_health
 	health_changed.emit(health, max_health)
 	player_died.emit()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		if GeneManager.genes_changed.is_connected(playerStats.recalculate_stats):
+			GeneManager.genes_changed.disconnect(playerStats.recalculate_stats)
+		CharacterDataManager.snapshot_before_scene_change()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -378,15 +405,66 @@ func _on_weapon_equipped(data: WeaponData, slot: int) -> void:
 
 func _setup_skills() -> void:
 	SkillManager.character = self
+	# 未登录时用 Export 默认技能；restore_to_player 会覆盖
+	if UserManager.current_character_id.is_empty():
+		if fireball_skill:
+			SkillManager.add_skill(fireball_skill, 1)
+			SkillManager.add_to_skill_bar("FireBall", 0)
+		if lightning_skill:
+			SkillManager.add_skill(lightning_skill, 1)
+			SkillManager.add_to_skill_bar("Lightning", 1)
+		if groupHealing_skill:
+			SkillManager.add_skill(groupHealing_skill, 1)
+			SkillManager.add_to_skill_bar("Group Healing", 2)
 
-	SkillManager.add_skill(fireball_skill, 1)
-	SkillManager.add_to_skill_bar("FireBall", 0)
 
-	SkillManager.add_skill(lightning_skill, 1)
-	SkillManager.add_to_skill_bar("Lightning", 1)
+## 临时测试：验证基因系统链路（猛禽视觉 1001 提升暴击率）
+func _test_gene_system() -> void:
+	const GENE_ID := 1001  # 猛禽视觉
+	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	print("🧬 [基因测试] 开始验证基因系统链路")
 
-	SkillManager.add_skill(groupHealing_skill, 1)
-	SkillManager.add_to_skill_bar("Group Healing", 2)
+	# 1. 前置检查：基因定义是否已加载
+	var def := GeneManager.get_gene_def(GENE_ID)
+	if def == null:
+		print("   ⚠️ 基因 %d 定义未加载（GameDataManager 可能尚未就绪），跳过测试" % GENE_ID)
+		print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		return
+
+	# 2. 设置职业与点数，记录基础暴击率
+	GeneManager.setup("Predator Striker", 100)
+	var base_crit := playerStats.base_critical_rate
+
+	# 3. 解锁（若已从快照恢复则跳过）并激活
+	if not GeneManager.has_gene(GENE_ID):
+		if not GeneManager.unlock_gene(GENE_ID):
+			print("   ❌ 解锁基因 %d 失败" % GENE_ID)
+			print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+			return
+	if not GeneManager.activate_gene(GENE_ID):
+		print("   ❌ 激活基因 %d 失败（可能槽位已满）" % GENE_ID)
+		print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+		return
+
+	# 4. 验证 Stats 已更新（genes_changed → recalculate_stats）
+	var crit_after := playerStats.current_critical_rate
+	var bonuses := GeneManager.get_bonuses()
+
+	print("   ✅ 基因: %s (ID=%d)" % [def.gene_name, GENE_ID])
+	print("   📊 暴击率: base=%.2f%% → current=%.2f%%" % [base_crit * 100, crit_after * 100])
+	print("   📊 暴击倍率: %.2f" % playerStats.current_critical_damage)
+	print("   📊 闪避率: %.2f%%" % (playerStats.current_evasion * 100))
+	print("   📊 激活基因数: %d / %d" % [GeneManager.get_active_count(), GeneManager.get_slot_limit()])
+	if bonuses.get("crit_rate_bonus", 0.0) != 0.0 or bonuses.get("crit_rate", 0.0) != 0.0:
+		print("   📊 基因暴击加成: +%.2f%%" % ((bonuses.get("crit_rate_bonus", 0.0) + bonuses.get("crit_rate", 0.0)) * 100))
+
+	# 5. 快速暴击模拟（100 次判定）
+	var crit_hits := 0
+	for i in 100:
+		if playerStats.roll_critical():
+			crit_hits += 1
+	print("   🎲 暴击模拟(100次): %d 次暴击 (期望约 %.0f)" % [crit_hits, crit_after * 100])
+	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
 func upgrade_skill(skill_name: String) -> void:
@@ -413,6 +491,30 @@ func get_skill_cooldowns() -> Array:
 				"progress":  info.get("cooldown_remaining", 0.0) / info.get("cooldown", 1.0),
 			})
 	return cooldowns
+
+
+## 获取鼠标指向的碰撞体（DOT/DEBUFF/INSTANT 技能需要 target_node）
+## 若命中 Area3D（部位），向上查找持有 stats 的根节点
+func get_target_node() -> Node3D:
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		return null
+	var mouse_pos := get_viewport().get_mouse_position()
+	var from := camera.project_ray_origin(mouse_pos)
+	var to := from + camera.project_ray_normal(mouse_pos) * 1000.0
+	var query := PhysicsRayQueryParameters3D.create(from, to)
+	var result := get_world_3d().direct_space_state.intersect_ray(query)
+	if not result or not result.has("collider"):
+		return null
+	var coll = result["collider"]
+	if coll is Node3D:
+		var n: Node = coll
+		while n:
+			if n.get("stats") != null or n.get("playerStats") != null:
+				return n as Node3D
+			n = n.get_parent()
+		return coll as Node3D
+	return null
 
 
 ## 获取鼠标指向的世界坐标（技能目标 / 瞄准用）

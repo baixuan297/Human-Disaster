@@ -39,10 +39,7 @@ var terrain = preload("res://Scene/map/terrain.tscn")
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	#player.connect("player_hit", damage)
-	#player.player_hit.connect(damage)
 	player.player_died.connect(_on_player_died)
-	_load_player_data_from_api()
 	
 
 func _input(event):
@@ -54,6 +51,8 @@ func _input(event):
 		var collider = interactray.get_collider()
 		if collider is Interactable:
 			if collider.is_in_group("terrain"):
+				CharacterDataManager.save_to_api()
+				CharacterDataManager.snapshot_before_scene_change()
 				get_tree().change_scene_to_file("res://Scene/map/terrain.tscn")
 
 
@@ -62,7 +61,7 @@ func _process(delta):
 	_auto_save_timer += delta
 	if _auto_save_timer >= AUTO_SAVE_INTERVAL:
 		_auto_save_timer = 0.0
-		_save_player_data_to_api()
+		CharacterDataManager.save_to_api()
 	if player.global_transform.origin.y < death_y:
 		if not falling:
 			falling = true
@@ -104,32 +103,6 @@ func _on_alienspawn_timeout():
 	#await get_tree().create_timer(0.1).timeout
 	#crosshairhit.visible = false
 	
-func _load_player_data_from_api() -> void:
-	var cid := UserManager.current_character_id
-	if cid.is_empty():
-		return
-	ApiManager.load_inventory(cid, func(success, resp):
-		if success and resp.has("slots"):
-			InventoryManager.load_serializable_inventory(resp["slots"])
-	)
-	ApiManager.load_skills(cid, func(success, resp):
-		if success and resp.has("skills"):
-			SkillManager.load_skills_data(resp["skills"])
-	)
-
-func _save_player_data_to_api() -> void:
-	var cid := UserManager.current_character_id
-	if cid.is_empty():
-		return
-	ApiManager.save_inventory(cid, InventoryManager.get_serializable_inventory(), func(success, _resp):
-		if success:
-			print("背包已自动保存")
-	)
-	ApiManager.save_skills(cid, SkillManager.save_skills_data(), func(success, _resp):
-		if success:
-			print("技能已自动保存")
-	)
-
 func _on_player_died():
 	# 删除敌人
 	for child in navigation_region.get_children():

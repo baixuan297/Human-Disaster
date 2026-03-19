@@ -169,16 +169,21 @@ func _on_hit() -> void:
 
 func _apply_damage_to(target: Node) -> void:
 	if _weapon_data != null:
-		# 使用 WeaponData 内置的暴击计算
-		var result    := _weapon_data.calculate_damage()
+		# 若发射者为玩家，使用玩家暴击率与暴击倍率覆盖
+		var override_crit_rate: float = -1.0
+		var override_crit_mult: float = -1.0
+		if _shooter and _shooter.get("playerStats"):
+			var s = _shooter.playerStats
+			if s:
+				override_crit_rate = s.current_critical_rate
+				override_crit_mult = s.current_critical_damage
+		var result    := _weapon_data.calculate_damage(override_crit_rate, override_crit_mult)
 		var dmg: int   = result[0]
 		var is_crit: bool = result[1]
 
 		var attack := AttackData.create_weapon_attack(_weapon_data, _shooter)
-		# final_damage 应用 body_part_multiplier（默认 1.0 = 正面命中）
-		attack.apply_body_part_multiplier(1.0)
-		# 用暴击计算后的值覆盖
-		attack.final_damage = dmg
+		# 暴击后的伤害写入 base_damage，EnemyBodyPart.apply_body_part_multiplier 会据此计算 final_damage
+		attack.base_damage = dmg
 
 		target.enemy_hit(attack)
 

@@ -1,121 +1,115 @@
 extends Node
 
-# API配置 - 修改为你的虚拟机IP和端口
+## APIManager — 后端 HTTP API 统一入口
+##
+## 职责：封装所有 API 请求、携带 JWT、超时处理、统一回调
+## 并行：每次 make_request 创建独立 HTTPRequest，支持并发（GameDataManager 同时拉 items/skills/genes）
+## 配置：修改 API_BASE_URL 为实际后端地址，或后续改为 project.godot 配置
+##
+## 依赖：project.godot 中注册为 ApiManager（autoload）
+
+# ── 配置（部署时需修改）────────────────────────────────────────────────────────
 const API_BASE_URL = "http://192.168.1.100:8000"
-# 令牌
 var jwt_token := ""
-# HTTP请求节点
-var http_request: HTTPRequest
+## 请求超时秒数（网络不稳定或后端冷启动时可适当增大）
+var timeout_sec: float = 25.0
 
-var timeout_sec := 10.0
-
-func _ready():
-	# 创建HTTP请求节点
-	http_request = HTTPRequest.new()
-	add_child(http_request)
-	#http_request.connect("request_completed", _on_request_completed)
-
-# 通用HTTP请求方法
-func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: Dictionary = {}, callback: Callable = Callable()) -> void:
+# ── 通用请求 ─────────────────────────────────────────────────────────────────
+## require_auth: 静态数据接口（game-data）无需 token，设为 false	
+func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: Dictionary = {}, callback: Callable = Callable(), require_auth: bool = true) -> void:
 	var url = API_BASE_URL + endpoint
-	#var headers = [
-		#"Content-Type: application/json"]
-		#"Authorization: Bearer " + jwt_token]
 	var headers = PackedStringArray(["Content-Type: application/json"])
-	headers.append("Authorization: Bearer %s" % jwt_token)
+	if require_auth:
+		headers.append("Authorization: Bearer %s" % jwt_token)
 	var body = ""
-	
 	if method != HTTPClient.METHOD_GET and not data.is_empty():
 		body = JSON.stringify(data)
-	
-	# 连接请求完成信号
-	if http_request.request_completed.is_connected(_on_request_completed):
-		http_request.request_completed.disconnect(_on_request_completed)
-	
-	http_request.request_completed.connect(_on_request_completed.bind(callback))
-	
-	var error = http_request.request(url, headers, method, body)
-	
-	if error != OK:
-		print("HTTP请求错误: ", error)
-		if callback.is_valid():
-			callback.call(false, {"message": "请求失败"})
-			
+
+	var req := HTTPRequest.new()
+	add_child(req)
+
+	var timed_out_state := [false]  ## 用数组包装，lambda 内可正确修改
 	var timer := Timer.new()
 	timer.wait_time = timeout_sec
 	timer.one_shot = true
 	add_child(timer)
-	timer.start()
-	
-	timer.timeout.connect(func():
-		if http_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
-			print("请求超时，取消请求: ", url)
-			http_request.cancel_request()
-			if callback.is_valid():
-				callback.call(false, {"message": "请求超时"})
-		timer.queue_free()
-	)
 
-# 请求完成回调
-func _on_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray, callback: Callable) -> void:
-	if result != HTTPRequest.RESULT_SUCCESS:
-		print("请求失败: ", result)
+	var on_completed := func(_result: int, response_code: int, _headers: PackedStringArray, resp_body: PackedByteArray) -> void:
+		if timed_out_state[0]:
+			return
+		timer.stop()
+		timer.queue_free()
+		req.queue_free()
+
+		var result := _result
+		if result != HTTPRequest.RESULT_SUCCESS:
+			if callback.is_valid():
+				callback.call(false, {"message": "网络错误"})
+			return
+
+		var response_text := resp_body.get_string_from_utf8()
+		var json := JSON.new()
+		if json.parse(response_text) != OK:
+			if callback.is_valid():
+				callback.call(false, {"message": "数据解析错误"})
+			return
+
+		var response_data = json.data
+		var success := response_code >= 200 and response_code < 300
+		if success and typeof(response_data) == TYPE_DICTIONARY and response_data.has("access_token"):
+			jwt_token = response_data["access_token"]
+		if not success and typeof(response_data) == TYPE_DICTIONARY and response_data.has("detail") and not response_data.has("message"):
+			response_data["message"] = response_data["detail"] if typeof(response_data["detail"]) == TYPE_STRING else str(response_data["detail"])
+
 		if callback.is_valid():
-			callback.call(false, {"message": "网络错误"})
-		return
-	
-	var response_text = body.get_string_from_utf8()
-	print("reponse text is: " + response_text)
-	var json = JSON.new()
-	var parse_error = json.parse(response_text)
-	#var parse_error = JSON.parse_string(response_text)
-	
-	if parse_error != OK:
-		print("JSON解析错误: ", parse_error)
+			callback.call(success, response_data)
+
+	req.request_completed.connect(on_completed)
+	var err := req.request(url, headers, method, body)
+	if err != OK:
+		req.queue_free()
+		timer.queue_free()
+		print("HTTP请求错误: ", err)
 		if callback.is_valid():
-			callback.call(false, {"message": "数据解析错误"})
+			callback.call(false, {"message": "请求失败"})
 		return
-	
-	var response_data = json.data
-	
-	var success = response_code >= 200 and response_code < 300
-	if success and typeof(response_data) == TYPE_DICTIONARY and response_data.has("access_token"):
-		jwt_token = response_data["access_token"]
-	
-	if callback.is_valid():
-		callback.call(success, response_data)
+
+	var on_timeout := func() -> void:
+		if timed_out_state[0]:
+			return
+		timed_out_state[0] = true
+		if req.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+			req.cancel_request()
+		print("API 请求超时: ", url, " （请检查 API_BASE_URL、后端是否运行、网络/防火墙）")
+		if callback.is_valid():
+			callback.call(false, {"message": "请求超时，请检查网络或后端地址"})
+		req.queue_free()
+		timer.queue_free()
+	timer.timeout.connect(on_timeout)
+	timer.start()
 
 ## === 用户相关API ===
 #
-## 检查密码强度
-#func check_password_strength(password: String, callback: Callable) -> void:
-	#make_request("/check_password_strength", HTTPClient.METHOD_POST, {"password": password}, callback)
-#
-## 发送验证码
-#func send_verification_code(email: String, callback: Callable) -> void:
-	#make_request("/send_verification_code", HTTPClient.METHOD_POST, {"email": email}, callback)
-#
-# 用户注册
-func register(username: String, password: String, email: String = "", callback: Callable = Callable()) -> void: 
-	
+# 用户注册（无需 token）
+func register(username: String, password: String, email: String = "", callback: Callable = Callable()) -> void:
 	var data = {
 		"username": username,
 		"email" : email,
 		"password": password
 	}
-	make_request("/register", HTTPClient.METHOD_POST, data, callback)
+	make_request("/register", HTTPClient.METHOD_POST, data, callback, false)
 
-# 发送验证码
+# 发送验证码（无需 token）
 func send_verification_code(email: String, callback: Callable) -> void:
-	make_request("/send_verification", HTTPClient.METHOD_POST, {"email": email}, callback)
+	make_request("/send_verification", HTTPClient.METHOD_POST, {"email": email}, callback, false)
 
-# 邮箱验证
-func verify_email(email: String, code: String, callback: Callable):
-	make_request("/verify_email", HTTPClient.METHOD_POST, {"email": email, "code": code}, callback)
+# 邮箱验证（无需 token）
+func verify_email(email: String, code: String, callback: Callable) -> void:
+	make_request("/verify_email", HTTPClient.METHOD_POST, {"email": email, "code": code}, callback, false)
 
-# 用户登录
+# 用户登录（无需 token）
 func login(username: String, password: String, callback: Callable) -> void:
-	make_request("/login", HTTPClient.METHOD_POST, {"username": username, "password": password}, callback)
+	make_request("/login", HTTPClient.METHOD_POST, {"username": username, "password": password}, callback, false)
 
 # 获取个人信息（带 token）
 func get_me(callback: Callable = Callable()) -> void:
@@ -126,9 +120,9 @@ func get_me(callback: Callable = Callable()) -> void:
 func list_characters(callback: Callable = Callable()) -> void:
 	make_request("/characters", HTTPClient.METHOD_GET, {}, callback)
 
-func create_character(name: String, server_id: int, character_class: String, callback: Callable = Callable()) -> void:
+func create_character(char_name: String, server_id: int, character_class: String, callback: Callable = Callable()) -> void:
 	var data := {
-		"name": name,
+		"name": char_name,
 		"server_id": server_id,
 		"character_class": character_class
 	}
@@ -155,3 +149,40 @@ func save_skills(character_id: String, skills_dict: Dictionary, callback: Callab
 
 func load_skills(character_id: String, callback: Callable) -> void:
 	make_request("/characters/%s/skills" % character_id, HTTPClient.METHOD_GET, {}, callback)
+
+## === 角色属性 API（与 game.character_stats 对齐） ===
+func load_stats(character_id: String, callback: Callable) -> void:
+	make_request("/characters/%s/stats" % character_id, HTTPClient.METHOD_GET, {}, callback)
+
+func save_stats(character_id: String, stats_dict: Dictionary, callback: Callable = Callable()) -> void:
+	make_request("/characters/%s/stats" % character_id, HTTPClient.METHOD_POST, stats_dict, callback)
+
+## === 基因 API（使用角色 ID，与 game.character_genes 对齐） ===
+##
+## genes_list 格式: [ { "gene_id": int, "current_level": int, "is_active": bool, "points_spent": int }, ... ]
+func load_genes(character_id: String, callback: Callable) -> void:
+	make_request("/characters/%s/genes" % character_id, HTTPClient.METHOD_GET, {}, callback)
+
+func save_genes(character_id: String, genes_list: Array, callback: Callable = Callable()) -> void:
+	var data := {"genes": genes_list}
+	make_request("/characters/%s/genes" % character_id, HTTPClient.METHOD_POST, data, callback)
+
+func unlock_gene(character_id: String, gene_id: int, callback: Callable = Callable()) -> void:
+	make_request("/characters/%s/genes/unlock" % character_id, HTTPClient.METHOD_POST, {"gene_id": gene_id}, callback)
+
+func upgrade_gene(character_id: String, gene_id: int, callback: Callable = Callable()) -> void:
+	make_request("/characters/%s/genes/upgrade" % character_id, HTTPClient.METHOD_POST, {"gene_id": gene_id}, callback)
+
+func toggle_gene(character_id: String, gene_id: int, is_active: bool, callback: Callable = Callable()) -> void:
+	var data := {"gene_id": gene_id, "is_active": is_active}
+	make_request("/characters/%s/genes/toggle" % character_id, HTTPClient.METHOD_POST, data, callback)
+
+## === 静态游戏数据 API（GameDataManager 启动时拉取，无需 token） ===
+func get_game_data_items(callback: Callable) -> void:
+	make_request("/game-data/items", HTTPClient.METHOD_GET, {}, callback, false)
+
+func get_game_data_skills(callback: Callable) -> void:
+	make_request("/game-data/skills", HTTPClient.METHOD_GET, {}, callback, false)
+
+func get_game_data_genes(callback: Callable) -> void:
+	make_request("/game-data/genes", HTTPClient.METHOD_GET, {}, callback, false)

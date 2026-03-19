@@ -2,6 +2,51 @@
 
 本文档描述项目中武器调用机制、解耦设计、音效与可维护性要点。
 
+## 武器系统数据流
+
+```mermaid
+flowchart TB
+    subgraph input [输入]
+        Shoot[request_single_shoot / request_auto_shoot]
+        Reload[request_reload]
+        Switch[switch_to_primary / secondary / hand]
+    end
+    subgraph manager [WeaponManager]
+        DoShoot[_do_shoot]
+        Equip[equip_weapon]
+        SwitchSlot[switch_to_slot]
+    end
+    subgraph world [场景]
+        WorldWeapon[WorldWeapon]
+    end
+    subgraph weapon [武器实例]
+        BaseWeapon[BaseWeapon.attack]
+        ViewModel[WeaponViewModel]
+    end
+    subgraph projectile [弹道]
+        Bullet[Bullet]
+    end
+    subgraph damage [伤害]
+        AttackData[AttackData.create_weapon_attack]
+        Enemy[BaseEnemy.apply_attack_data]
+        Stats[Stats.take_damage]
+    end
+    subgraph ui [UI]
+        AmmoUI[playerAmmoUi]
+    end
+    Shoot --> DoShoot
+    DoShoot --> BaseWeapon
+    BaseWeapon --> Bullet
+    Bullet --> AttackData
+    AttackData --> Enemy
+    Enemy --> Stats
+    WorldWeapon -->|"pickup"| Equip
+    Equip --> SwitchSlot
+    Reload --> ViewModel
+    Switch --> SwitchSlot
+    manager -->|"ammo_changed"| AmmoUI
+```
+
 ## 1. 模块职责与依赖关系
 
 ```

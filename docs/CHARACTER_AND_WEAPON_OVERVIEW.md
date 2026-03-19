@@ -4,6 +4,38 @@
 
 ---
 
+## 角色与系统关系总览
+
+```mermaid
+flowchart TB
+    subgraph player [Player]
+        PlayerNode[CharacterBody3D]
+        PlayerStats[playerStats: Stats]
+        WeaponMgrRef[weapon_manager]
+    end
+    subgraph autoload [Autoload 单例]
+        SkillMgr[SkillManager]
+        InvMgr[InventoryManager]
+        CharData[CharacterDataManager]
+    end
+    subgraph weapon [武器]
+        WeaponManager[WeaponManager]
+        BaseWeapon[BaseWeapon]
+        Bullet[Bullet]
+    end
+    PlayerNode -->|"character ="| SkillMgr
+    PlayerNode --> PlayerStats
+    PlayerNode --> WeaponMgrRef
+    WeaponMgrRef --> WeaponManager
+    WeaponManager --> BaseWeapon
+    BaseWeapon --> Bullet
+    CharData -->|"restore / save"| InvMgr
+    CharData -->|"restore / save"| SkillMgr
+    CharData -->|"restore / save"| PlayerStats
+```
+
+---
+
 ## 一、角色（Player）整体结构
 
 ### 1.1 场景与脚本
@@ -32,12 +64,12 @@
 ### 1.4 生命与属性
 
 - **Stats 资源**：`resource/stats/stats.gd`（class_name Stats），提供 `current_health`、`current_max_health`、`current_defense`、等级/经验、Buff、`take_damage(attack_data)`、`died` 信号等。
-- **Player 侧**：`max_health` / `health` 与 UI 同步，`take_damage()` / `damage()` / `apply_healing()`，死亡时 `player_died.emit()` 并重置血量。
+- **Player 侧**：`max_health` / `health` 与 UI 同步，`take_damage()` / `apply_attack_data()` / `apply_healing()`，死亡时 `player_died.emit()` 并重置血量。
+- **云端数据**：`CharacterDataManager` 在进入可游玩场景时从 API 加载背包、技能、属性并应用到 Player，详见 `docs/CharacterDataManager.md`。
 
 ### 1.5 技能系统
 
-- **SkillManager**：`$SkillManager` 子节点，挂载 `autoload/SkillManager.gd`（通过 ext_resource 注入）。
-- Player 在 `_ready` 中：`skill_manager.add_skill(...)`、`add_to_skill_bar(...)`，连接 `skill_used`。
+- **SkillManager**：**autoload 单例**（`project.godot` 注册），Player 在 `_ready` 中 `SkillManager.character = self`，再 `add_skill(...)`、`add_to_skill_bar(...)`，连接 `skill_used`。
 - 技能槽 Skill1/2/3 在 `_input` 中调用 `use_skill_from_bar(slot_index, target_pos)`，目标点由 `get_target_position()`（射线）或 `get_player_position()` 提供。
 
 ### 1.6 交互系统

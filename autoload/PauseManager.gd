@@ -97,9 +97,8 @@ func _update_state() -> void:
 
 
 func _set_pause_state(new_state: PauseState) -> void:
-	var old_state := get_current_state()
-	if old_state != new_state:
-		emit_signal("state_changed", new_state)
+	# 每次状态变更都通知订阅者（用于隐藏 HUD 等）
+	emit_signal("state_changed", new_state)
 
 
 func get_current_state() -> PauseState:
@@ -141,11 +140,12 @@ func close_pause_menu() -> void:
 	pause_menu_instance = null
 
 	pop_state(PauseState.PAUSED)
+	CharacterDataManager.save_to_api()
 
 
 ## 退出到主菜单
 func exit_to_main_menu() -> void:
-	_save_player_data_to_api()
+	CharacterDataManager.save_to_api(Callable(), true)
 	# 移除暂停菜单
 	if pause_menu_instance:
 		pause_menu_instance.queue_free()
@@ -160,21 +160,6 @@ func exit_to_main_menu() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	# 切换到主菜单场景
 	SceneManager.change_scene("main_menu")
-
-
-## 将背包和技能保存到 API
-func _save_player_data_to_api() -> void:
-	var cid := UserManager.current_character_id
-	if cid.is_empty():
-		return
-	ApiManager.save_inventory(cid, InventoryManager.get_serializable_inventory(), func(success, _resp):
-		if success:
-			print("背包已保存到服务器")
-	)
-	ApiManager.save_skills(cid, SkillManager.save_skills_data(), func(success, _resp):
-		if success:
-			print("技能已保存到服务器")
-	)
 
 
 ## 背包控制

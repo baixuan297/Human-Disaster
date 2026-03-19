@@ -1,49 +1,55 @@
 extends Node
-# 用户管理类 - 处理本地和服务器的用户数据
+
+## UserManager — 用户与角色 ID 管理
+##
+## 职责：登录/注册（调用 ApiManager）、角色 ID 缓存、记住密码
+## 数据源：以服务器为准，本地 users.dat 仅作兼容，credentials.dat 存记住的账号密码
+## 注意：本地 _hash_password 用 SHA256，仅用于 users.dat 兼容；后端用 argon2 校验
 
 const SAVE_PATH = "user://users.dat"
 const CREDENTIALS_PATH = "user://credentials.dat"
 
 var local_users = {}
-## 当前角色 ID，登录成功后由 /me 接口填充，用于背包/技能 API
+## 当前角色 ID，登录成功后由 GET /characters 填充，用于背包/技能/属性 API
 var current_character_id: String = ""
 
 func _init():
 	_load_local_users()
-	
-	
-func user_register(username: String, password: String, mail: String) -> bool:
+
+
+## 注册：调用后端 API，callback(success: bool, data) 在 API 返回后调用
+## 若 callback 为空，仅检查本地是否已存在后发起请求，不阻塞
+func user_register(username: String, password: String, mail: String, callback: Callable = Callable()) -> bool:
 	if local_users.has(username):
+		if callback.is_valid():
+			callback.call(false, {"message": "Username already exists"})
 		return false
 
-	
 	ApiManager.register(username, password, mail, func(success: bool, data):
 		if success:
 			print("✅ 注册成功:", data)
 			register_local(username, password)
 		else:
 			print("❌ 注册失败:", data)
-			return false
+		if callback.is_valid():
+			callback.call(success, data)
 	)
 	return true
 
-func user_login(username: String, password: String) -> bool:
-	if not local_users.has(username):
-		return false
-	
-	if not login_local(username, password):
-		return false
-
-	
+## 登录：以服务器为准，直接调用 API 验证，不依赖本地用户表
+## callback(success: bool, data) — 成功时 data 可省略，失败时 data 含错误信息
+func user_login(username: String, password: String, callback: Callable) -> void:
 	ApiManager.login(username, password, func(success, data):
-		if success:
-			print("✅ 登录成功，token=", ApiManager.jwt_token)
-			_fetch_character_id()
-		else:
-			print("❌ 登录失败:", data)
+		if not success:
+			if callback.is_valid():
+				callback.call(false, data)
+			return
+		print("✅ 登录成功，token=", ApiManager.jwt_token)
+		_fetch_character_id(func():
+			if callback.is_valid():
+				callback.call(true)
 		)
-	
-	return true
+	)
 
 # ============ 本地存储功能 ============
 func register_local(username: String, password: String) -> bool:
@@ -126,9 +132,9 @@ func clear_credentials():
 	if FileAccess.file_exists(CREDENTIALS_PATH):
 		DirAccess.remove_absolute(CREDENTIALS_PATH)
 
-# ============ 角色 ID（用于背包/技能 API，来自 GET /characters） ============
+# ============ 角色 ID（用于背包/技能/属性 API，来自 GET /characters） ============
 
-func _fetch_character_id() -> void:
+func _fetch_character_id(on_done: Callable = Callable()) -> void:
 	ApiManager.list_characters(func(success, data):
 		if success and typeof(data) == TYPE_ARRAY and data.size() > 0:
 			var first = data[0]
@@ -142,6 +148,8 @@ func _fetch_character_id() -> void:
 		else:
 			current_character_id = ""
 			print("未获取到角色列表，请先创建角色")
+		if on_done.is_valid():
+			on_done.call()
 	)
 
 # ============ 工具函数 ============

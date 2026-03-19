@@ -10,15 +10,51 @@ APIManager 是项目中用于与后端 HTTP API 通信的全局单例（autoload
 |----|------|
 | **脚本路径** | `autoload/APIManager.gd` |
 | **Autoload 名称** | `ApiManager`（见 `project.godot`） |
-| **API 根地址** | `API_BASE_URL = "http://192.168.1.100:8000"`（常量，需按实际服务器修改） |
-| **请求超时** | `timeout_sec = 10.0` 秒 |
+| **API 根地址** | `API_BASE_URL = "http://192.168.1.100:8000"`（常量，部署时需修改，见 `docs/TODO.md`） |
+| **请求超时** | `timeout_sec = 25.0` 秒 |
 | **认证方式** | 请求头 `Authorization: Bearer <jwt_token>`，登录成功后自动保存 `jwt_token` |
 
 ---
 
-## 二、核心方法
+## 二、API 请求数据流
 
-### 2.1 通用请求：`make_request`
+```mermaid
+flowchart TB
+    subgraph caller [调用方]
+        Register[register / login]
+        Inventory[InventoryManager]
+        SkillManager[SkillManager]
+        CharacterData[CharacterDataManager]
+    end
+    subgraph api [APIManager]
+        MakeRequest[make_request]
+        HTTPReq[HTTPRequest]
+        Timer[Timer]
+    end
+    subgraph backend [后端]
+        BackendAPI[API]
+    end
+    subgraph callback [回调]
+        Callback[callback.call]
+    end
+    Register --> MakeRequest
+    Inventory --> MakeRequest
+    SkillManager --> MakeRequest
+    CharacterData --> MakeRequest
+    MakeRequest --> HTTPReq
+    MakeRequest --> Timer
+    HTTPReq -->|"请求"| BackendAPI
+    BackendAPI -->|"响应"| HTTPReq
+    HTTPReq -->|"request_completed"| Callback
+    Timer -->|"超时"| Callback
+    Callback -->|"success, data"| caller
+```
+
+---
+
+## 三、核心方法
+
+### 3.1 通用请求：`make_request`
 
 ```gdscript
 func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: Dictionary = {}, callback: Callable = Callable()) -> void
@@ -31,16 +67,17 @@ func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: D
   - `success`：HTTP 状态码 2xx 为 true。  
   - `response_data`：解析后的 JSON（若解析失败则传 `{"message": "数据解析错误"}` 等）。  
   - 请求失败、超时、解析错误时也会调用 callback，此时 `success == false`。
+- **require_auth**：是否携带 JWT。静态数据接口（game-data）设为 `false`，无需 token。
 
 行为摘要：
 
-- 每次请求前会断开旧的 `request_completed` 连接，再绑定当前 `callback`。
+- **并行请求**：每次调用 `make_request` 会创建独立的 `HTTPRequest` 节点，请求完成后自动释放。支持多请求并发（如 GameDataManager 同时拉取 items/skills/genes）。
 - 若响应为 2xx 且为字典且包含 `"access_token"`，会自动把 `response_data["access_token"]` 写入 `jwt_token`，后续请求会带此 token。
 - 超时通过内部 `Timer` 实现：超时后取消请求并调用 `callback.call(false, {"message": "请求超时"})`。
 
 ---
 
-## 三、已实现的用户相关 API
+## 四、已实现的用户相关 API
 
 | 方法 | 路径 | 方法 | 说明 |
 |------|------|------|------|
@@ -52,18 +89,35 @@ func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: D
 
 ---
 
-## 四、背包与技能 API（使用角色 ID）
+## 五、角色 API（使用角色 ID）
 
-| 方法 | 路径 | 方法 | 说明 |
+| 方法 | 路径 | HTTP | 说明 |
 |------|------|------|------|
-| `save_inventory(character_id, slots, callback)` | `/characters/{id}/inventory` | POST | 保存背包，`slots` 建议用 `InventoryManager.get_serializable_inventory()` |
-| `load_inventory(character_id, callback)` | `/characters/{id}/inventory` | GET | 加载背包，回调中 `resp["slots"]` 传给 `InventoryManager.load_serializable_inventory()` |
-| `save_skills(character_id, skills_dict, callback)` | `/characters/{id}/skills` | POST | 保存技能，`skills_dict` 建议用 `SkillManager.save_skills_data()` |
-| `load_skills(character_id, callback)` | `/characters/{id}/skills` | GET | 加载技能，回调中 `resp["skills"]` 用于恢复等级 |
+| `list_characters(callback)` | `/characters` | GET | 获取角色列表 |
+| `create_character(char_name, server_id, character_class, callback)` | `/characters` | POST | 创建角色 |
+| `save_inventory(character_id, slots, callback)` | `/characters/{id}/inventory` | POST | 保存背包 |
+| `load_inventory(character_id, callback)` | `/characters/{id}/inventory` | GET | 加载背包 |
+| `save_skills(character_id, skills_dict, callback)` | `/characters/{id}/skills` | POST | 保存技能 |
+| `load_skills(character_id, callback)` | `/characters/{id}/skills` | GET | 加载技能 |
+| `load_stats(character_id, callback)` | `/characters/{id}/stats` | GET | 加载角色属性 |
+| `save_stats(character_id, stats_dict, callback)` | `/characters/{id}/stats` | POST | 保存角色属性 |
+| `load_genes(character_id, callback)` | `/characters/{id}/genes` | GET | 加载角色基因 |
+| `save_genes(character_id, genes_list, callback)` | `/characters/{id}/genes` | POST | 保存角色基因（全量） |
+| `unlock_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/unlock` | POST | 解锁基因 |
+| `upgrade_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/upgrade` | POST | 升级基因 |
+| `toggle_gene(character_id, gene_id, is_active, callback)` | `/characters/{id}/genes/toggle` | POST | 激活/停用基因 |
+
+## 六、静态游戏数据 API（无需 token）
+
+| 方法 | 路径 | HTTP | 说明 |
+|------|------|------|------|
+| `get_game_data_items(callback)` | `/game-data/items` | GET | 获取物品静态数据 |
+| `get_game_data_skills(callback)` | `/game-data/skills` | GET | 获取技能静态数据 |
+| `get_game_data_genes(callback)` | `/game-data/genes` | GET | 获取基因静态数据 |
 
 ---
 
-## 五、使用示例
+## 七、使用示例
 
 ```gdscript
 # 登录
@@ -99,21 +153,46 @@ ApiManager.save_skills(character_id, SkillManager.save_skills_data(), func(succe
         print("技能保存成功")
 )
 
-# 读取技能（只恢复等级）
+# 读取技能
 ApiManager.load_skills(character_id, func(success, resp):
     if success and resp.has("skills"):
-        for name in resp["skills"].keys():
-            var lvl = int(resp["skills"][name].get("level", 1))
-            SkillManager.set_skill_level(name, lvl)
+        SkillManager.load_skills_data(resp["skills"])
 )
+
+# 加载/保存角色属性（通常由 CharacterDataManager 调用）
+ApiManager.load_stats(character_id, func(success, resp):
+    if success and resp is Dictionary and player_stats:
+        player_stats.load_from_dict(resp)
+)
+ApiManager.save_stats(character_id, player_stats.save_to_dict(), func(success, resp): ...)
 ```
 
 ---
 
-## 六、注意事项
+## 八、API 测试
+
+`test/api_test.gd` 覆盖所有 API 路径，运行 `test/api_test.tscn` 可验证接口连通性：
+
+| 序号 | 路径 | 说明 |
+|------|------|------|
+| 1 | POST /register | 注册 |
+| 2 | POST /login | 登录 |
+| 3 | GET /me | 当前用户 |
+| 4 | GET /characters | 角色列表 |
+| 4b | POST /characters | 创建角色（无角色时） |
+| 5-10 | /characters/{id}/inventory, skills, stats | 背包/技能/属性 加载与保存 |
+| 10b | /characters/{id}/genes | 基因加载/保存（可选） |
+| 11-13 | GET /game-data/items, skills, genes | 静态数据（无需 token） |
+| 14 | POST /send_verification | 发送验证码 |
+| 15 | POST /verify_email | 邮箱验证 |
+
+---
+
+## 九、注意事项
 
 1. **修改服务器地址**：改 `API_BASE_URL` 常量为你的后端地址。
-2. **JWT 持久化**：当前仅在内存中保存 `jwt_token`，进程结束即丢失；若需持久化，可在登录成功后自行写入 `user://` 或通过 SettingData/SaveManager 等保存。
-3. **线程/节点**：`HTTPRequest` 在 `_ready` 中创建并挂到 APIManager 下，回调在主线程执行，可直接操作场景树。
+2. **CharacterDataManager**：角色数据加载/保存由 `CharacterDataManager` 统一封装，详见 `docs/CharacterDataManager.md`。
+3. **JWT 持久化**：当前仅在内存中保存 `jwt_token`，进程结束即丢失；若需持久化，可在登录成功后自行写入 `user://` 或通过 SettingData/SaveManager 等保存。
+4. **线程/节点**：`HTTPRequest` 在 `_ready` 中创建并挂到 APIManager 下，回调在主线程执行，可直接操作场景树。
 
 以上为 APIManager 的完整说明。

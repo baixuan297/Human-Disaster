@@ -178,9 +178,10 @@ func get_scene_path(scene_name: String) -> String:
 
 ## 通过获取内部场景来更换场景
 func _change_scene_internal(path: String, save_history: bool) -> void:
+	CharacterDataManager.snapshot_before_scene_change()
 	is_loading = true
 	load_scene = path
-	
+
 	# 保存到历史栈
 	if save_history and current_scene:
 		var current_name = get_current_scene_name()

@@ -1,14 +1,41 @@
 extends Node
 class_name ItemDatabase
 
+## ItemDatabase — 物品定义本地缓存
+##
+## 数据源：先加载 res://addons/xuanBag/data/*.json，再通过 GameDataManager 同步（网络优先）
+## 字段兼容：create_item_data_from_dict 支持 name/description/icon_path 与 item_name/item_desc/item_icon
+
 var items_data: Dictionary = {}
 var icons_cache: Dictionary = {}
 
+# ── 生命周期 ──────────────────────────────────────────────────────────────────
 
-func _ready():
+func _ready() -> void:
+	# 优先从本地 JSON 文件夹加载（旧系统兼容）
 	load_json_from_folder()
+	# 如果 GameDataManager 已加载完成，再从它同步（覆盖/补充，网络数据优先）
+	if GameDataManager.is_loaded():
+		register_from_game_data_manager()
+	else:
+		GameDataManager.all_data_loaded.connect(register_from_game_data_manager)
 
-func load_items_from_json(file_path: String):
+# ── 从 GameDataManager 批量注册（网络数据优先级高于本地 JSON）──────────────────
+
+func register_from_game_data_manager() -> void:
+	var all_items: Array = GameDataManager.get_all_items()
+	for raw in all_items:
+		var item := create_item_data_from_dict(raw)
+		if item:
+			var key := str(int(raw.get("item_id", 0)))
+			items_data[key] = item
+			if item.icon:
+				icons_cache[key] = item.icon
+	print("[ItemDatabase] 从 GameDataManager 同步 %d 个物品" % all_items.size())
+
+# ── 从本地 JSON 文件加载（兼容旧系统）───────────────────────────────────────
+
+func load_items_from_json(file_path: String) -> void:
 	# 检查
 	if not FileAccess.file_exists(file_path):
 		print("物品数据文件不存在: ", file_path)
@@ -37,73 +64,69 @@ func load_items_from_json(file_path: String):
 		for item_data in data:
 			var item = create_item_data_from_dict(item_data)
 			if item:
-				items_data[str(item.id)] = item
-				# 预加载图标
+				var key := str(int(item_data.get("item_id", item_data.get("id", 0))))
+				items_data[key] = item
 				if item.icon:
-					icons_cache[str(item.id)] = item.icon
+					icons_cache[key] = item.icon
 	elif typeof(data) == TYPE_DICTIONARY and data.has("items"):
-		for item_data in data.items:
+		for item_data in data["items"]:
 			var item = create_item_data_from_dict(item_data)
 			if item:
-				items_data[str(item.id)] = item
-				# 预加载图标
+				var key := str(int(item_data.get("item_id", item_data.get("id", 0))))
+				items_data[key] = item
 				if item.icon:
-					icons_cache[str(item.id)] = item.icon
+					icons_cache[key] = item.icon
 	else:
 		print("JSON文件格式错误：不支持的数据格式")
 		return
 	
 	#print("成功加载 ", items_data.size(), " 个物品数据")
 
-func create_item_data_from_dict(data_dict: Dictionary) -> ItemData:
-	var item = ItemData.new()
-	
-	# 转换
-	item.id = str(int(data_dict.get("item_id", 0)))
-	item.name = data_dict.get("item_name", "")
-	item.description = data_dict.get("item_desc", "")
-	item.max_stack = int(data_dict.get("max_stack", 1))
+func create_item_data_from_dict(d: Dictionary) -> ItemData:
+	if d.is_empty():
+		return null
+
+	var item := ItemData.new()
+
+	# ── ID（兼容 item_id / id）────────────────────────────────────────────────
+	var raw_id = d.get("item_id", d.get("id", 0))
+	item.id = str(int(raw_id))
+
+	# ── 名称（新字段 name，兼容旧字段 item_name）────────────────────────────
+	item.name = d.get("name", d.get("item_name", ""))
+
+	# ── 描述（新字段 description，兼容旧字段 item_desc）────────────────────
+	item.description = d.get("description", d.get("item_desc", ""))
+
+	# ── 堆叠
+	item.max_stack = int(d.get("max_stack", 1))
 	item.sell_price = 0
 	item.buy_price = 0
-	
-	# 处理类型
-	var type_string = data_dict.get("item_type", "FOOD")
-	match type_string.to_upper():
-		"FOOD":
-			item.item_type = ItemData.ItemType.FOOD
-		"WEAPON":
-			item.item_type = ItemData.ItemType.WEAPON
-		"ARMOR":
-			item.item_type = ItemData.ItemType.POTION
-		"TOOL":
-			item.item_type = ItemData.ItemType.TOOL
-		"MATERIAL":
-			item.item_type = ItemData.ItemType.MATERIAL
-		"QUEST":
-			item.item_type = ItemData.ItemType.QUEST
-		_:
-			item.item_type = ItemData.ItemType.MATERIAL
-			print("未知物品类型: ", type_string)
-	
-	# 处理稀有度
-	var rarity_string = data_dict.get("rarity", "COMMON")
-	match rarity_string.to_upper():
-		"COMMON":
-			item.rarity = ItemData.ItemRarity.COMMON
-		"UNCOMMON":
-			item.rarity = ItemData.ItemRarity.UNCOMMON
-		"RARE":
-			item.rarity = ItemData.ItemRarity.RARE
-		"EPIC":
-			item.rarity = ItemData.ItemRarity.EPIC
-		"LEGENDARY":
-			item.rarity = ItemData.ItemRarity.LEGENDARY
-		_:
-			item.rarity = ItemData.ItemRarity.COMMON
-			print("未知稀有度: ", rarity_string)
-	
-	# 加载图标
-	var icon_path = data_dict.get("item_icon", "")
+
+	# ── 物品类型（兼容 ARMOR → POTION 的旧映射）────────────────────────────
+	var type_str: String = d.get("item_type", "MATERIAL")
+	match type_str.to_upper():
+		"FOOD":     item.item_type = ItemData.ItemType.FOOD
+		"WEAPON":   item.item_type = ItemData.ItemType.WEAPON
+		"POTION":   item.item_type = ItemData.ItemType.POTION
+		"ARMOR":    item.item_type = ItemData.ItemType.POTION  # 旧数据兼容
+		"TOOL":     item.item_type = ItemData.ItemType.TOOL
+		"MATERIAL": item.item_type = ItemData.ItemType.MATERIAL
+		"QUEST":    item.item_type = ItemData.ItemType.QUEST
+		_:          item.item_type = ItemData.ItemType.MATERIAL
+
+	# ── 稀有度 ─────────────────────────────────────────────────────────────
+	var rarity_str: String = d.get("rarity", "COMMON")
+	match rarity_str.to_upper():
+		"COMMON":     item.rarity = ItemData.ItemRarity.COMMON
+		"UNCOMMON":   item.rarity = ItemData.ItemRarity.UNCOMMON
+		"RARE":       item.rarity = ItemData.ItemRarity.RARE
+		"EPIC":       item.rarity = ItemData.ItemRarity.EPIC
+		"LEGENDARY":  item.rarity = ItemData.ItemRarity.LEGENDARY
+		_:            item.rarity = ItemData.ItemRarity.COMMON
+
+	# ── 图标（新字段 icon_path，兼容旧字段 item_icon）──────────────────────
+	var icon_path: String = d.get("icon_path", d.get("item_icon", ""))
 	if icon_path != "" and icon_path != null:
 		# 检查是否有文件扩展名，如果没有就尝试常见格式 
 		var file_extensions = [".png", ".jpg", ".jpeg", ".svg"]
@@ -124,7 +147,7 @@ func create_item_data_from_dict(data_dict: Dictionary) -> ItemData:
 				loaded = true
 		
 		if not loaded:
-			print("图标文件不存在: ", icon_path, " (已尝试多种格式)")
+			push_warning("[ItemDatabase] 图标文件不存在: " + icon_path)
 	
 	return item
 

@@ -1,10 +1,14 @@
 extends Node
 
-const SETTINGS_SAVE_PATH : String = "user://SettingsData"
+## SaveManager — 设置存档（仅设置，不含游戏存档）
+##
+## 职责：监听 SettingSignal，将设置字典加密写入 user://SettingsData
+## 注意：游戏存档（背包/技能/属性）由 CharacterDataManager 负责，通过 API 云端保存
+## 详见 docs/CharacterDataManager.md
 
+const SETTINGS_SAVE_PATH : String = "user://SettingsData"
 var settings_data_dict : Dictionary = {}
 
-# Called when the node enters the scene tree for the first time.
 func _ready():
 	SettingSignal.set_setting_dictionary.connect(on_settings_save)
 	load_settings_data()

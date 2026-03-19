@@ -113,10 +113,14 @@ func setup_weapon() -> void:
 # ═══════════════════════════════════════════════════════════════
 
 ## 计算本次伤害（含暴击判定）
+## override_crit_rate: 外部暴击率覆盖（>=0 时使用，否则用武器自身 crit_rate）
+## override_crit_mult: 外部暴击倍率覆盖（>=0 时使用，否则用武器自身 crit_multiplier）
 ## 返回 [final_damage: int, is_crit: bool]
-func calculate_damage() -> Array:
-	var is_crit := randf() < crit_rate
-	var dmg := int(Current_damage * (crit_multiplier if is_crit else 1.0))
+func calculate_damage(override_crit_rate: float = -1.0, override_crit_mult: float = -1.0) -> Array:
+	var effective_crit_rate := override_crit_rate if override_crit_rate >= 0.0 else crit_rate
+	var effective_crit_mult := override_crit_mult if override_crit_mult >= 0.0 else crit_multiplier
+	var is_crit := randf() < effective_crit_rate
+	var dmg := int(Current_damage * (effective_crit_mult if is_crit else 1.0))
 	return [dmg, is_crit]
 
 

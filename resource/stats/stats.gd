@@ -1,45 +1,56 @@
 extends Resource
 class_name Stats
 
-#var _current_health: float = 0
-#@export var current_health: float:
-	#get: return _current_health
-	#set(value):
-		#_current_health = clampf(value, 0, current_max_health)
-		#health_changed.emit(_current_health, current_max_health)
-		#if _current_health <= 0:
-			#died.emit()
-#var _experience: float = 0
-#@export var experience: float:
-	#get: return _experience
-	#set(value):
-		#var old_level = level
-		#_experience = value
-		#if level != old_level:
-			#recalculate_stats()
+##   · 移除 base_speed（已由移动组件独立管理）
+##   · 新增 base_critical_rate / base_critical_damage / base_evasion
+##   · recalculate_stats() 现在会叠加 GeneManager 的基因加成
+##   · 提供 save_to_dict / load_from_dict 与 API 对接
 
-# 基础数值
-@export var base_max_health: float = 100
-@export var base_attack: float = 10
-@export var base_defense: float = 5
-@export var base_exp_to_next_level: float = 100
-@export var base_speed: float = 10
+# 信号
+signal health_changed(cur_health: float, max_health: float)
+signal died
+
+# -- 基础数值 --
+## 最大生命
+@export var base_max_health: float = 100.0
+## 基础攻击
+@export var base_attack: float = 10.0
+## 基础防御 
+@export var base_defense: float = 5.0
+## 基础经验
+@export var base_exp_to_next_level: float = 100.0
+#@export var base_speed: float = 10.00
+
+## 暴击率 0.0~1.0（0.05 = 5%）
+@export var base_critical_rate:   float = 0.05
+## 暴击伤害倍率（1.5 = 150%，即额外 50%）
+@export var base_critical_damage: float = 1.50
+## 闪避率 0.0~1.0
+@export var base_evasion:         float = 0.05
+
 # 当前数值
 @export var level: int:
 	get(): return floor(max(1.0, sqrt(experience / base_exp_to_next_level) + 0.5))
-@export var experience: float = 0: 
+@export var experience: float = 0.0: 
 	set = _on_experience_set
-@export var current_health: float = 0: 
+@export var current_health: float = 0.0: 
 	set = _on_health_set
 
-var current_max_health: float = 100
-var current_attack: float = 10
+# -- 最终计算值（由 recalculate_stats 填入）--
+var current_max_health: float = 100.0
+var current_attack: float = 10.0
 var current_defense: float = 5.0
+var current_critical_rate: float = 0.05
+var current_critical_damage: float = 1.50
+var current_evasion: float = 0.05
 
 enum BuffableStats {
 	ATTACK,
 	MAX_HEALTH,
 	DEFENSE,
+	CRITICAL_RATE,
+	CRITICAL_DAMAGE,
+	EVASION,
 }
 var stat_buffs: Array[StatBuff]
 
@@ -50,9 +61,8 @@ const STAT_CURVES: Dictionary[BuffableStats, Curve] = {
 	BuffableStats.ATTACK: preload("uid://6dnmm2hlc03m")
 }
 
-signal health_changed(cur_health, max_health)
-signal died
-#signal leveled_up(new_level)
+## 基因加成：GeneManager.genes_changed 由 Player 连接至 recalculate_stats
+## recalculate_stats 内调用 GeneManager.get_bonuses() 叠加属性
 
 func _init() -> void:
 	# 如果将当前血量赋值为最大血量，会是100（根据最大血量的值来定）， 但是如果我们在检查器中更改这个值
@@ -75,6 +85,57 @@ func add_buff(buff: StatBuff) -> void:
 func remove_buff(buff: StatBuff) -> void:
 	stat_buffs.erase(buff)
 	recalculate_stats.call_deferred()
+
+
+## 添加临时 Buff，duration 秒后自动移除
+## owner_node 用于创建 Timer（Stats 为 Resource 无 get_tree）
+func add_temporary_buff(buff: StatBuff, duration: float, owner_node: Node) -> void:
+	if owner_node == null or not owner_node.is_inside_tree():
+		add_buff(buff)
+		return
+	add_buff(buff)
+	owner_node.get_tree().create_timer(duration).timeout.connect(func():
+		if buff in stat_buffs:
+			remove_buff(buff)
+	)
+
+
+## 施加持续伤害（DOT）
+## owner_node 为持有此 Stats 的节点，用于创建 Timer
+func apply_dot(owner_node: Node, dps: float, tick_interval: float, duration: float, source: Node = null) -> void:
+	if owner_node == null or not owner_node.is_inside_tree():
+		return
+	var ticks: int = maxi(1, int(duration / tick_interval))
+	var damage_per_tick: float = dps
+	var ticks_done := [0]  ## 用数组包装，闭包内可正确修改
+
+	var _do_tick: Callable
+	_do_tick = func():
+		if ticks_done[0] >= ticks:
+			return
+		ticks_done[0] += 1
+		var attack := AttackData.new()
+		attack.source = AttackData.AttackType.SKILL
+		attack.source_node = source
+		attack.base_damage = damage_per_tick
+		attack.final_damage = damage_per_tick
+		attack.body_part_multiplier = 1.0
+		take_damage(attack)
+		if ticks_done[0] < ticks:
+			owner_node.get_tree().create_timer(tick_interval).timeout.connect(_do_tick)
+
+	owner_node.get_tree().create_timer(tick_interval).timeout.connect(_do_tick)
+
+
+## 应用暴击倍率（供技能暴击判定使用）
+func apply_crit_multiplier(damage: float) -> float:
+	return damage * current_critical_damage
+
+
+## 每帧处理效果（DOT/Buff 计时等，由持有者节点在 _process 中调用）
+func process_effects(_delta: float) -> void:
+	pass
+
 
 ## 设置生命
 func _on_health_set(new_value: float) -> void:
@@ -99,7 +160,7 @@ func recalculate_stats() -> void:
 	# 遍历玩家身上的buff
 	for buff in stat_buffs:
 		# 获取buff的状态名称 并且小写方便作为字典键
-		var stat_name: String = BuffableStats.keys()[buff.stats].to_lower()
+		var stat_name: String = BuffableStats.keys()[buff.stat].to_lower()
 		# 根据增益的处理类型 比如相加或者相乘
 		match buff.buff_type:
 			StatBuff.BuffType.Add:
@@ -114,9 +175,6 @@ func recalculate_stats() -> void:
 					stat_multipliers[stat_name] = 0.0
 				stat_multipliers[stat_name] += buff.buff_amount
 				
-				# 最后如果小于 0，则强制归 0（防止出现负数导致属性倒扣）
-				if stat_multipliers[stat_name] < 0.0:
-					stat_multipliers[stat_name] = 0.0
 				
 	
 	# 计算一个 采样位置，用于从曲线中取值。
@@ -127,18 +185,57 @@ func recalculate_stats() -> void:
 	current_defense = base_defense * STAT_CURVES[BuffableStats.DEFENSE].sample(stat_sample_pos)
 	current_attack = base_attack * STAT_CURVES[BuffableStats.ATTACK].sample(stat_sample_pos)
 		
+	# 暴击和闪避不走成长曲线，直接用基础值（靠基因和装备加成）
+	current_critical_rate   = base_critical_rate
+	current_critical_damage = base_critical_damage
+	current_evasion         = base_evasion
+
+	# 叠加基因加成（GeneManager.get_bonuses）
+	var bonuses: Dictionary = GeneManager.get_bonuses()
+	current_max_health      += float(bonuses.get("max_health_bonus", 0))
+	current_attack          += float(bonuses.get("attack_bonus", 0))
+	current_defense         += float(bonuses.get("defense_bonus", 0))
+	current_critical_rate   += float(bonuses.get("crit_rate_bonus", 0.0))
+	current_critical_damage += float(bonuses.get("crit_damage_bonus", 0.0))
+	current_evasion         += float(bonuses.get("evasion_bonus", 0.0))
+
 	for stat_name in stat_multipliers:
 		var cur_propety_name: String = str("current_" + stat_name)
-		set(cur_propety_name, get(cur_propety_name) * stat_multipliers[stat_name])
+		## Multiply: 倍率 = (1 + sum)，如 -0.25 表示 -25% → ×0.75
+		var mult: float = 1.0 + stat_multipliers[stat_name]
+		set(cur_propety_name, get(cur_propety_name) * maxf(mult, 0.01))
 		
 	for stat_name in stat_addends:
 		var cur_propety_name: String = str("current_" + stat_name)
 		set(cur_propety_name, get(cur_propety_name) + stat_addends[stat_name])
 		
+		
+	current_critical_rate   = clampf(current_critical_rate,   0.0, 1.0)
+	current_critical_damage = maxf(current_critical_damage, 1.0)
+	current_evasion         = clampf(current_evasion,         0.0, 1.0)
+	current_max_health      = maxf(current_max_health, 1.0)
+	
+	if current_health > current_max_health:
+		current_health = current_max_health
+		
+		
+		
+## 判断是否闪避（返回 true = 成功闪避）
+func roll_evasion() -> bool:
+	return randf() < current_evasion
+
+## 判断是否暴击（返回 true = 暴击）
+func roll_critical() -> bool:
+	return randf() < current_critical_rate
+
 ## 承受伤害（防御计算 + 死亡判定） **
 func take_damage(attack_data: AttackData) -> void:
 	if attack_data == null:
 		push_error("Stats: 收到空的 AttackData")
+		return
+	# 闪避判定：成功则不受伤害
+	if roll_evasion():
+		print("🛡️ Stats 闪避成功，未受到伤害")
 		return
 	
 	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -165,7 +262,7 @@ func take_damage(attack_data: AttackData) -> void:
 	# ──────────────────────────────────────────────────────────
 	# 3. 扣除生命值
 	# ──────────────────────────────────────────────────────────
-	current_health = clampf(current_health - actual_damage, 0, current_max_health)
+	current_health = clampf(current_health - actual_damage, 0.0, current_max_health)
 	
 	# ──────────────────────────────────────────────────────────
 	# 4. 触发信号
@@ -179,65 +276,6 @@ func take_damage(attack_data: AttackData) -> void:
 	print("   剩余生命: %.1f / %.1f" % [current_health, current_max_health])
 	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-# 可以用来当做帅帅的延迟伤害一起爆发 **
-func apply_attack_data(attack_data: AttackData) -> void:
-	take_damage(attack_data)
-	
-#func take_damage(attack_data: DamageEvent) -> void:
-	## 计算基础伤害
-	#var damage: float = attack_data.damage
-	#print("敌人收到的伤害为", damage)
-#
-	## 如果是武器攻击，用武器数据修正伤害
-	#if attack_data.source == AttackData.AttackType.WEAPON and attack_data.weapon_data:
-		#var weapon := attack_data.weapon_data
-		#damage = weapon.Current_damage
-		#print("攻击者的武器伤害为", damage)
-#
-		## 命中部位倍率（只对武器生效）
-		#damage *= attack_data.body_part_multiplier
-		#print("命中部位倍率后伤害为", damage)
-#
-	## 如果是技能攻击，直接使用技能伤害（不吃部位倍率）
-	#if attack_data.source == AttackData.AttackType.SKILL and attack_data.skill_data:
-		#damage = attack_data.skill_data.base_damage
-		#print("技能伤害为", damage, "im the real damage")
-#
-	## 计算收到的伤害，并且使用max防止伤害是负数的
-	#var actual_damage = max(damage - current_defense, 0.0)
-	#print("最终的伤害为", actual_damage)
-#
-	## 处理闪避与暴击
-	##var is_crit := false
-	##if weapon:
-		## 先判断闪避
-		##if randf() < base_dodge_rate:
-			##print("⚡ %s 闪避了攻击！" % str(self))
-			##return
-##
-		### 暴击判定
-		##if randf() < weapon.base_crit_rate:
-			##actual_damage *= attacker.base_crit_damage
-			##is_crit = true
-#
-	## 结算伤害
-	#current_health = clampf(current_health - actual_damage, 0, current_max_health)
-#
-	## 输出信息
-	##if is_crit:
-		##print("💥 暴击！")
-	#print("%s 受到 %.1f 点伤害，剩余 %.1f / %.1f" 
-		#% [str(self), actual_damage, current_health, current_max_health])
-#
-	## 触发信号
-	#health_changed.emit(current_health, current_max_health)
-#
-	#if current_health <= 0:
-		#print("💀 %s 死亡" % str(self))
-		#died.emit()
-
-
-
 ## 恢复生命
 func heal(amount: float) -> void:
 	current_health = min(current_health + amount, current_max_health)
@@ -247,3 +285,42 @@ func heal(amount: float) -> void:
 func gain_experience(amount: float) -> void:
 	experience += amount
 	print("%s 获得 %.1f 经验值 (当前等级 %d)" % [str(self), amount, level])
+
+
+
+func apply_attack_data(attack_data: AttackData) -> void:
+	take_damage(attack_data)
+ 
+ 
+# -- 存档接口（与 APIManager 对接） --
+ 
+## 导出为可发送给 API 的 Dictionary
+## 对应 CharacterStatsSaveRequest schema
+func save_to_dict() -> Dictionary:
+	return {
+		"max_health":      int(current_max_health),
+		"current_health":  int(current_health),
+		"attack":          int(current_attack),
+		"defense":         int(current_defense),
+		"critical_rate":   snappedf(current_critical_rate,   0.0001),
+		"critical_damage": snappedf(current_critical_damage, 0.0001),
+		"evasion":         snappedf(current_evasion,         0.0001),
+	}
+ 
+## 从 API 返回的 Dictionary 恢复属性（登录后调用一次）
+## 恢复基础数值后调用 recalculate_stats（含 GeneManager.get_bonuses 基因加成）
+func load_from_dict(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+
+	var new_max_hp := float(data.get("max_health", base_max_health))
+	var new_cur_hp := float(data.get("current_health", new_max_hp))
+
+	base_max_health      = new_max_hp
+	base_attack          = float(data.get("attack",   base_attack))
+	base_defense         = float(data.get("defense",  base_defense))
+	base_critical_rate   = float(data.get("critical_rate",   0.05))
+	base_critical_damage = float(data.get("critical_damage", 1.50))
+	base_evasion         = float(data.get("evasion",         0.05))
+	recalculate_stats()
+	current_health = clampf(new_cur_hp, 0.0, current_max_health)

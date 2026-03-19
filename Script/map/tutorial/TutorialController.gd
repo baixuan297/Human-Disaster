@@ -57,6 +57,6 @@ func _on_zone_weapon_body_exited(body: Node3D) -> void:
 
 func _on_teleport_area_body_entered(body: Node3D) -> void:
 	if body is CharacterBody3D:
+		CharacterDataManager.save_to_api()
 		ScreenEffect.cutscene_fade_out(1.0)
-		#await get_tree().create_timer(2.0).timeout
 		SceneManager.change_scene("training_ground")

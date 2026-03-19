@@ -394,7 +394,16 @@ func _handle_raycast_impact(collider: Node, _hit_point: Vector3, data: WeaponDat
 	if collider == null:
 		return
 	if collider.is_in_group("enemy") and collider.has_method("enemy_hit"):
+		var override_crit_rate: float = -1.0
+		var override_crit_mult: float = -1.0
+		if _player and _player.get("playerStats"):
+			var s = _player.playerStats
+			if s:
+				override_crit_rate = s.current_critical_rate
+				override_crit_mult = s.current_critical_damage
+		var result := data.calculate_damage(override_crit_rate, override_crit_mult)
 		var attack := AttackData.create_weapon_attack(data, _player)
+		attack.base_damage = result[0]
 		collider.enemy_hit(attack)
 		enemy_hit.emit()
 	if collider.is_in_group("moveObject") and collider is RigidBody3D:

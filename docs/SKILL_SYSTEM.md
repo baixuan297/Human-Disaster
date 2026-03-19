@@ -7,9 +7,9 @@
 ## 1. 模块职责与依赖关系
 
 ```
-Player                      → 持有 SkillManager 子节点；输入调用 use_skill_from_bar(slot, target_pos)
-  └── SkillManager          → 技能字典 + 技能栏槽位；add_skill / add_to_skill_bar / use_skill_from_bar / level_up_skill
-        └── Skill（多个）   → 单技能实例：冷却、等级、use() → _execute_skill() 按类型分发
+Player                      → 输入调用 use_skill_from_bar(slot, target_pos)；_ready 中 SkillManager.character = self
+SkillManager (autoload)     → 技能字典 + 技能栏槽位；add_skill / add_to_skill_bar / use_skill_from_bar / level_up_skill
+  └── Skill（多个）         → 单技能实例：冷却、等级、use() → _execute_skill() 按类型分发
 
 SkillResource (.tres)       → 纯数据：名称、类型、曲线(伤害/冷却/范围/持续)、cast_effect / hit_effect / 音效
 技能效果场景（如 fireball）  → 由 Skill 在 _execute_* 中 instantiate，setup(skill_resource, level, owner) + set_target(pos)
@@ -17,7 +17,51 @@ AttackData                  → create_skill_attack(skill_resource, level, caste
 ```
 
 - **解耦要点**：技能数值与成长在 **SkillResource**；施法逻辑在 **Skill** 内按 `skill_type` 分发；特效场景由资源引用，Skill 只做实例化与 `setup`/`set_target`。
-- **SkillManager** 非 autoload，挂于 Player 下（如 `$SkillManager`），`character` 引用 Player，用于效果节点的父节点与施法者。
+- **SkillManager** 为 **autoload 单例**（`project.godot` 注册），`character` 在 Player._ready 中绑定当前 Player，用于效果节点的父节点与施法者。
+
+### 1.1 技能系统数据流
+
+```mermaid
+flowchart TB
+    subgraph input [输入]
+        PlayerInput[Player 输入 Q/E/X]
+    end
+    subgraph manager [SkillManager]
+        UseFromBar[use_skill_from_bar]
+        SkillDict[skills Dictionary]
+        SkillBar[skill_bar Array]
+    end
+    subgraph skill [Skill]
+        Use[use]
+        CanUse[can_use]
+        Execute[_execute_skill]
+        Effects[_play_effects]
+    end
+    subgraph effect [效果]
+        CastEffect[cast_effect 实例化]
+        HitEffect[hit_effect]
+        AttackData[AttackData.create_skill_attack]
+    end
+    subgraph target [目标]
+        Enemy[BaseEnemy.apply_attack_data]
+        Stats[Stats.take_damage]
+    end
+    subgraph persist [持久化]
+        CharData[CharacterDataManager]
+        ApiManager[ApiManager]
+    end
+    PlayerInput --> UseFromBar
+    UseFromBar --> SkillBar
+    SkillBar --> Use
+    Use --> CanUse
+    CanUse --> Execute
+    Execute --> CastEffect
+    Execute --> AttackData
+    AttackData --> Enemy
+    Enemy --> Stats
+    CharData -->|"load_skills / save_skills"| ApiManager
+    ApiManager -->|"load_skills_data / save_skills_data"| manager
+```
 
 ---
 

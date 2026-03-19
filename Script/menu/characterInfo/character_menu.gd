@@ -41,5 +41,5 @@ func _on_profile_button_pressed() -> void:
 
 func _on_exit_button_pressed() -> void:
 	print("closing...")
-	pauseManager.close_inventory()
+	pauseManager.close_characterInfo()
 	uiManager.close_current_ui()

@@ -1,7 +1,9 @@
 extends Node3D
 ## UI 层：仅通过信号更新 health_bar、health_label、crosshair、ammo 等，与 Player/WeaponManager 解耦。
+## 当 inventory/characterMenu/暂停菜单 打开时自动隐藏 HUD，避免遮挡。
 
 # 注入
+var ui_layer: CanvasLayer
 var health_bar: ProgressBar
 var health_label: Label
 var crosshair: Control
@@ -14,6 +16,7 @@ var ammo_reserve_label: Label
 
 
 func setup(
+	p_ui_layer: CanvasLayer,
 	p_health_bar: ProgressBar,
 	p_health_label: Label,
 	p_crosshair: Control,
@@ -22,6 +25,7 @@ func setup(
 	p_no_more_bullet: Label,
 	p_hit_rect: Control
 ) -> void:
+	ui_layer = p_ui_layer
 	health_bar = p_health_bar
 	health_label = p_health_label
 	crosshair = p_crosshair
@@ -33,6 +37,25 @@ func setup(
 	if ammo_container != null:
 		ammo_current_label = ammo_container.get_node_or_null("CurrentAmmo")
 		ammo_reserve_label = ammo_container.get_node_or_null("reserve")
+
+	# 其他 UI 打开时隐藏 HUD
+	if not PauseManager.state_changed.is_connected(_on_pause_state_changed):
+		PauseManager.state_changed.connect(_on_pause_state_changed)
+	_update_hud_visibility(PauseManager.get_current_state())
+
+
+func _on_pause_state_changed(new_state: PauseManager.PauseState) -> void:
+	_update_hud_visibility(new_state)
+
+
+func _update_hud_visibility(state: PauseManager.PauseState) -> void:
+	var hide_hud := state in [
+		PauseManager.PauseState.INVENTORY,
+		PauseManager.PauseState.CHARACTERINFO,
+		PauseManager.PauseState.PAUSED,
+	]
+	if ui_layer != null:
+		ui_layer.visible = not hide_hud
 
 
 func _apply_health_ui(current: float, maximum: float) -> void:

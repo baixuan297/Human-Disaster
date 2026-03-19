@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://k4npmlk0u7a6"]
 
-[ext_resource type="Shader" uid="uid://dvbuo2tsnjo3c" path="res://shader_material/skill_fireball_trail.tres" id="1_kiv35"]
+[ext_resource type="Shader" uid="uid://dvbuo2tsnjo3c" path="res://shader_material/skill/fireball/skill_fireball_trail.tres" id="1_kiv35"]
 
 [sub_resource type="Gradient" id="Gradient_bgdbr"]
 offsets = PackedFloat32Array(0, 0.08230453, 0.5596708, 0.9218107, 1)

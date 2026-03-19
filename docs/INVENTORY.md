@@ -25,6 +25,37 @@
          └── ItemTooltip ── 悬停说明
 ```
 
+### 1.1 数据流图
+
+```mermaid
+flowchart TB
+    subgraph data [数据层]
+        InvManager[InventoryManager]
+        ItemDB[ItemDatabase]
+    end
+    subgraph ui [界面层]
+        InvUI[InventoryUI]
+        ItemSlots[ItemSlot]
+        Tooltip[ItemTooltip]
+    end
+    subgraph game [游戏逻辑]
+        Chest[宝箱 / InteractionComponent]
+        CharData[CharacterDataManager]
+    end
+    subgraph api [API]
+        ApiManager[ApiManager]
+    end
+    InvManager -->|"inventory_changed"| InvUI
+    InvManager -->|"item_added / item_removed"| ItemSlots
+    InvUI -->|"get_current_bag_items"| InvManager
+    InvUI -->|"use_item / move_item"| InvManager
+    Chest -->|"add_item_by_numeric_id"| InvManager
+    CharData -->|"load_serializable / get_serializable"| InvManager
+    CharData --> ApiManager
+    ApiManager -->|"load_inventory / save_inventory"| InvManager
+    ItemDB -->|"get_item_data"| InvManager
+```
+
 - **数据**：只存在于 `InventoryManager`（单例），槽位数组 `items: Array[InventoryItem]`，最大槽位数 `max_slots`（默认 60）。
 - **界面**：`InventoryUI` 只负责展示与操作，通过信号和 `InventoryManager` 的 API 读写数据，不持有备份。
 - **物品定义**：来自 JSON（见 `addons/xuanBag/data/`），由 `ItemDatabase` 加载，`InventoryManager` 在 `_ready` 中创建并持有 `ItemDatabase`。

@@ -332,6 +332,8 @@ func load_serializable_inventory(data: Array) -> void:
 			var id_str := str(id_val) if id_val != null and id_val != "" else ""
 			if id_str != "":
 				var item_data = item_database.get_item_data(id_str)
+				if not item_data and GameDataManager.is_loaded():
+					item_data = GameDataManager.get_item_data(int(id_val))
 				if item_data:
 					items[i] = InventoryItem.new(item_data, qty)
 	inventory_changed.emit()

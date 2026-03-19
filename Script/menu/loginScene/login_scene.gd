@@ -31,43 +31,42 @@ func _ready():
 func _on_login_button_pressed():
 	var username = username_input.text.strip_edges()
 	var password = password_input.text
-	
+
 	if username.is_empty() or password.is_empty():
 		gb_message.show_message("Username and password cannot be empty!", "error")
 		return
-		
-	# 登录加载
+
 	gb_message.show_message("Logging in...", "success")
-	await get_tree().create_timer(0.5).timeout
-	
-	# 尝试登录
-	var result = user_manager.user_login(username, password)
-	
-	# 如果返回正确，那么登录反之错误
-	if result:
-		gb_message.show_message("Login successful!", "success")
-		if remember_me.button_pressed:
-			user_manager.save_credentials(username, password)
-		else :
-			user_manager.clear_credentials()
-		await get_tree().create_timer(0.5).timeout
-		gb_message.show_message("Welcome User" + username, "success")
-		await get_tree().create_timer(0.5).timeout
-		SceneManager.change_scene("main_menu")
-		return
-	# 如果返回的结果是false，那么证明用户名或者密码错误
-	else :
-		gb_message.show_message("Incorrect password or username", "error")
+	login_button.disabled = true
+
+	user_manager.user_login(username, password, func(success, _data = null):
+		login_button.disabled = false
+		if success:
+			gb_message.show_message("Login successful!", "success")
+			if remember_me.button_pressed:
+				user_manager.save_credentials(username, password)
+			else:
+				user_manager.clear_credentials()
+			gb_message.show_message("Welcome " + username, "success")
+			await get_tree().create_timer(0.5).timeout
+			SceneManager.change_scene("main_menu")
+		else:
+			var msg := "Incorrect password or username"
+			if _data is Dictionary and _data.has("detail"):
+				var d = _data["detail"]
+				msg = str(d) if d is String else str(d)
+			gb_message.show_message(msg, "error")
+	)
 
 func _on_register_button_pressed():
 	var register_instan = register_scene.instantiate()
 	add_child(register_instan)
 
 func _try_auto_login():
-	var saved_creds = user_manager.load_credentials()
-	if saved_creds:
-		username_input.text = saved_creds.username
-		password_input.text = saved_creds.password
+	var saved_creds := user_manager.load_credentials()
+	if not saved_creds.is_empty():
+		username_input.text = saved_creds.get("username", "")
+		password_input.text = saved_creds.get("password", "")
 		remember_me.button_pressed = true
 
 
