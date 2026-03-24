@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="Hazard" load_steps=2 format=3 uid="uid://buj2swidccxvi"]
+
+[ext_resource type="Script" uid="uid://chm0n0dfxu8gw" path="res://resource/hazard/hazard.gd" id="1_dc0fd"]
+
+[resource]
+script = ExtResource("1_dc0fd")
+damage = 40.0
+tick_interval = 1.0
+metadata/_custom_type_script = "uid://chm0n0dfxu8gw"
