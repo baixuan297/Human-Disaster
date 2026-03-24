@@ -1,6 +1,9 @@
 extends Node
 
-signal on_subtitles_toggled(value : bool)
+## SettingSignal — 设置相关的全局信号与 emit 封装
+## UI 与 SaveManager 之间的桥梁：`set_setting_dictionary` 触发存档，`load_setting_data` 分发读盘结果。
+
+signal on_subtitles_toggled(value: bool)
 
 signal on_window_mode_selected(index : int)
 signal on_resolution_mode_selected(index : int)

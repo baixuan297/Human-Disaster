@@ -7,11 +7,15 @@ extends Node
 ## 注意：本地 _hash_password 用 SHA256，仅用于 users.dat 兼容；后端用 argon2 校验
 
 const SAVE_PATH = "user://users.dat"
+## 记住密码：明文存储于 user://，仅便利本地调试；正式环境建议改为 OS 密钥环或禁用
 const CREDENTIALS_PATH = "user://credentials.dat"
 
 var local_users = {}
 ## 当前角色 ID，登录成功后由 GET /characters 填充，用于背包/技能/属性 API
 var current_character_id: String = ""
+## 当前角色显示名与职业（与列表中第一条角色同步，供属性面板等 UI）
+var current_character_name: String = ""
+var current_character_class: String = ""
 
 func _init():
 	_load_local_users()
@@ -63,10 +67,9 @@ func register_local(username: String, password: String) -> bool:
 	return true
 
 func login_local(username: String, password: String) -> bool:
-	var hashed_password = _hash_password(password)
-	print("password = ", password, " / password_hased = ", hashed_password)
-	print(local_users[username]["password"])
-	print(local_users[username]["password"] == hashed_password)
+	if not local_users.has(username):
+		return false
+	var hashed_password := _hash_password(password)
 	return local_users[username]["password"] == hashed_password
 
 func save_user_local(username: String, password: String):
@@ -136,6 +139,8 @@ func clear_credentials():
 
 func _fetch_character_id(on_done: Callable = Callable()) -> void:
 	ApiManager.list_characters(func(success, data):
+		current_character_name = ""
+		current_character_class = ""
 		if success and typeof(data) == TYPE_ARRAY and data.size() > 0:
 			var first = data[0]
 			if typeof(first) == TYPE_DICTIONARY and first.has("character_id"):
@@ -144,6 +149,9 @@ func _fetch_character_id(on_done: Callable = Callable()) -> void:
 				current_character_id = str(first["id"])
 			else:
 				current_character_id = ""
+			if typeof(first) == TYPE_DICTIONARY:
+				current_character_name = str(first.get("name", ""))
+				current_character_class = str(first.get("character_class", ""))
 			print("✅ 角色 ID 已更新: ", current_character_id)
 		else:
 			current_character_id = ""

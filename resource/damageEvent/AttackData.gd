@@ -22,6 +22,7 @@ class_name AttackData
 enum AttackType {
 	WEAPON,   # 武器攻击
 	SKILL,    # 技能攻击
+	HAZARD,   # 场景伤害（毒池、岩浆等）
 }
 
 @export var source: AttackType          # 攻击来源类型
@@ -40,6 +41,16 @@ var source_node: Node                   # 攻击发起者（用于追踪）
 var is_critical: bool = false           # 是否暴击
 var element_type: int = -1              # 元素类型（如果需要）
 var knockback_force: float = 0.0        # 击退力度
+## 场景伤害子类型（对应 Hazard.HazardType：火/毒/荆棘等）
+var hazard_sub_type: int = -1
+
+const HAZARD_TYPE_NAMES: Array[String] = ["火", "毒", "荆棘", "其他"]
+
+## 获取场景伤害子类型名称（用于日志/UI）
+func get_hazard_type_name() -> String:
+	if hazard_sub_type < 0 or hazard_sub_type >= HAZARD_TYPE_NAMES.size():
+		return "未知"
+	return HAZARD_TYPE_NAMES[hazard_sub_type]
 
 
 ## 工厂方法：由 WeaponManager（射线命中）或 Bullet（弹体命中）调用，构造武器伤害数据
@@ -50,6 +61,19 @@ static func create_weapon_attack(weapon: WeaponData, attacker: Node = null) -> A
 	attack.weapon_data = weapon
 	attack.base_damage = weapon.Current_damage if weapon else 0
 	# 注意：final_damage 需要在应用部位倍率后设置
+	return attack
+
+
+## 创建场景伤害数据（毒池、岩浆等 hazard）
+## hazard_type 对应 Hazard.HazardType（FIRE/POISON/THORNS/OTHER），-1 表示未指定
+static func create_hazard_attack(damage: float, hazard_node: Node = null, hazard_type: int = -1) -> AttackData:
+	var attack := AttackData.new()
+	attack.source = AttackType.HAZARD
+	attack.source_node = hazard_node
+	attack.base_damage = damage
+	attack.final_damage = damage
+	attack.body_part_multiplier = 1.0
+	attack.hazard_sub_type = hazard_type
 	return attack
 
 
@@ -74,11 +98,9 @@ func apply_body_part_multiplier(multiplier: float) -> void:
 		AttackType.WEAPON:
 			# 武器攻击受部位倍率影响
 			final_damage = base_damage * body_part_multiplier
-		AttackType.SKILL:
-			# 技能攻击不受部位倍率影响（根据您的设计）
+		AttackType.SKILL, AttackType.HAZARD:
+			# 技能/场景伤害不受部位倍率影响
 			final_damage = base_damage
-			# 如果技能也需要部位倍率，改为：
-			# final_damage = base_damage * body_part_multiplier
 
 ## 调试信息
 func get_debug_info() -> String:

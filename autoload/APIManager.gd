@@ -14,6 +14,12 @@ var jwt_token := ""
 ## 请求超时秒数（网络不稳定或后端冷启动时可适当增大）
 var timeout_sec: float = 25.0
 
+
+func _ready() -> void:
+	## 暂停时仍处理 HTTP 请求与回调（否则暂停菜单点「退出」时 save_to_api 回调不会执行）
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
+
 # ── 通用请求 ─────────────────────────────────────────────────────────────────
 ## require_auth: 静态数据接口（game-data）无需 token，设为 false	
 func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: Dictionary = {}, callback: Callable = Callable(), require_auth: bool = true) -> void:
@@ -156,6 +162,15 @@ func load_stats(character_id: String, callback: Callable) -> void:
 
 func save_stats(character_id: String, stats_dict: Dictionary, callback: Callable = Callable()) -> void:
 	make_request("/characters/%s/stats" % character_id, HTTPClient.METHOD_POST, stats_dict, callback)
+
+## === 场景状态 API（场景路径、玩家位置与朝向） ===
+##
+## data 格式: { "scene_path": "res://Scene/map/world.tscn", "position": [x,y,z], "rotation_y": float }
+func save_scene_state(character_id: String, data: Dictionary, callback: Callable = Callable()) -> void:
+	make_request("/characters/%s/scene_state" % character_id, HTTPClient.METHOD_POST, data, callback)
+
+func load_scene_state(character_id: String, callback: Callable) -> void:
+	make_request("/characters/%s/scene_state" % character_id, HTTPClient.METHOD_GET, {}, callback)
 
 ## === 基因 API（使用角色 ID，与 game.character_genes 对齐） ===
 ##

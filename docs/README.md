@@ -8,6 +8,8 @@
 
 | 文档 | 说明 |
 |------|------|
+| [AUTOLOAD_AND_UI.md](AUTOLOAD_AND_UI.md) | Autoload 顺序、Pause/UI、SignalBus（占位）、与 CharacterDataManager 协作 |
+| [SCRIPT_LAYOUT.md](SCRIPT_LAYOUT.md) | `Script/` 目录按领域划分说明 |
 | [APIManager.md](APIManager.md) | API 请求封装、JWT、超时、用户/角色/物品/技能/基因接口 |
 | [CharacterDataManager.md](CharacterDataManager.md) | 角色数据加载/保存、快照/恢复、与 API 对接 |
 | [GameDataManager.md](GameDataManager.md) | 静态物品/技能/基因定义加载与查询 |
@@ -32,3 +34,10 @@
 | 文档 | 说明 |
 |------|------|
 | [CHARACTER_AND_WEAPON_OVERVIEW.md](CHARACTER_AND_WEAPON_OVERVIEW.md) | 角色与武器系统理解摘要、教程系统 |
+| [CHARACTER_MENU.md](CHARACTER_MENU.md) | 角色菜单、属性面板、SYNC 等级与图标资源约定 |
+
+---
+
+## 测试
+
+Godot 无头单测与 `api_test` 场景说明见仓库根目录 [TESTING.md](../../docs/TESTING.md)。

@@ -1,42 +1,55 @@
 extends Node3D
+## 场景伤害：毒池 hazard。必须注入 Hazard 资源，统一走 Stats.take_damage → health_changed → UI 更新。
 
 @onready var animation_player: AnimationPlayer = $AnimationPlayer
+@onready var area_3d: Area3D = $Area3D
 
-# 间隔时间
-var tick_interval: float = 0.5
+## 必填：注入 Hazard 资源（伤害、间隔、类型由此配置）
+@export var hazard_data: Hazard = null
 var damage_timer: Timer
-# 记录池中的角色
 var bodies_in_pool: Array = []
 
-# Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	animation_player.play("Scene")
+	if hazard_data == null:
+		push_warning("[poison_pool] 未注入 hazard_data，场景伤害将不生效")
+		return
+	# 确保 Area3D 能检测到玩家（Player 默认在 layer 1）
+	if area_3d:
+		area_3d.monitoring = true
+		area_3d.collision_mask = 1  # 检测 layer 1（CharacterBody3D 等）
 	
 	damage_timer = Timer.new()
-	damage_timer.wait_time = tick_interval
+	damage_timer.wait_time = hazard_data.tick_interval
 	damage_timer.timeout.connect(_apply_damage)
 	add_child(damage_timer)
 
 func _on_area_3d_body_entered(body: Node3D) -> void:
-	if body.has_method("take_damage"):
+	if hazard_data == null:
+		return
+	if _can_damage(body):
 		bodies_in_pool.append(body)
-		
 	if bodies_in_pool.size() == 1:
 		damage_timer.start()
 
 
 func _on_area_3d_body_exited(body: Node3D) -> void:
-	# 角色离开池子
 	if body in bodies_in_pool:
 		bodies_in_pool.erase(body)
-		
-		# 如果没有角色在池中，停止计时器
-		if bodies_in_pool.is_empty():
+		if bodies_in_pool.is_empty() and damage_timer != null:
 			damage_timer.stop()
-	
-	
-func _apply_damage():
-	# 对池中所有角色造成伤害
+
+
+func _can_damage(body: Node3D) -> bool:
+	return body.has_method("apply_attack_data") or body.has_method("take_damage")
+
+
+func _apply_damage() -> void:
+	if hazard_data == null:
+		return
+	var attack := hazard_data.create_attack_data(self)
 	for body in bodies_in_pool:
-		if body.has_method("take_damage"):
-			body.take_damage()
+		if body.has_method("apply_attack_data"):
+			body.apply_attack_data(attack)
+		elif body.has_method("take_damage"):
+			body.take_damage(hazard_data.damage)

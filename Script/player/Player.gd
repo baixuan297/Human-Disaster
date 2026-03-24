@@ -7,6 +7,7 @@ extends CharacterBody3D
 ##   默认无武器（徒手）→ 场景中靠近 WorldWeapon 按 interactable
 ##   → WeaponManager.equip_weapon() 实例化 BaseWeapon + WeaponViewModel
 ##   → can_shoot = true → 开始射击
+##   WeaponManager 在自身 _ready 中自绑定相机与瞄准射线，Player 无需 setup 传参。
 ##
 ## 【移动/相机/交互】已移交 MovementComponent、CameraController、InteractionComponent。
 ## ═══════════════════════════════════════════════════════════════
@@ -39,16 +40,6 @@ var current_person: PersonView = PersonView.FIRST
 
 @onready var t_person:      Node3D    = $thirdperson
 @onready var third_person:  Camera3D  = $thirdperson/Camera3D
-@onready var aimraythird:   RayCast3D = $thirdperson/Camera3D/Aimray
-@onready var aimrayendthird: Node3D   = $thirdperson/Camera3D/aimrayend
-
-
-# ──────────────────────────────────────────────────────────────
-#  节点引用：第一人称瞄准射线
-# ──────────────────────────────────────────────────────────────
-
-@onready var aimray:    RayCast3D = $firstperson/nek/head/eyes/Camera3D/Aimray
-@onready var aimrayend: Node3D    = $firstperson/nek/head/eyes/Camera3D/aimrayend
 
 
 # ──────────────────────────────────────────────────────────────
@@ -141,15 +132,7 @@ var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-	# ── 武器系统初始化 ──────────────────────────────────
-	weapon_manager.setup(
-		self,
-		player_camera,
-		aimray,
-		aimrayend,
-		aimraythird,
-		aimrayendthird
-	)
+	# ── 武器系统：WeaponManager 在子节点 _ready 中已自绑定相机/射线，此处只连信号 ──
 	weapon_manager.ammo_changed.connect(_on_ammo_changed)
 	weapon_manager.weapon_equipped.connect(_on_weapon_equipped)
 
@@ -205,16 +188,17 @@ func _setup_components() -> void:
 		weapon_manager,
 		self
 	)
-	player_ui_controller.setup(
-		$UI,
-		health_bar,
-		health_label,
-		crosshair,
-		crosshairhit,
-		Ammo_container,
-		no_more_bullet,
-		hit_rect
-	)
+	if player_ui_controller != null:
+		player_ui_controller.setup(
+			$UI,
+			health_bar,
+			health_label,
+			crosshair,
+			crosshairhit,
+			Ammo_container,
+			no_more_bullet,
+			hit_rect
+		)
 	
 	# ─────────────────────────────
 	#  2. 移动相关音效（脚步 / 落地）
@@ -241,14 +225,17 @@ func _setup_components() -> void:
 	# ─────────────────────────────
 	#  4. UI / 武器事件绑定
 	# ─────────────────────────────
-	health_changed.connect(player_ui_controller.on_health_changed)
-	player_died.connect(player_ui_controller.on_player_died)
-	player_hit.connect(player_ui_controller.on_player_hit)
-	self.Update_Ammo.connect(player_ui_controller.on_ammo_update)
-	weapon_manager.enemy_hit.connect(player_ui_controller.on_enemy_hit)
-	weapon_manager.out_of_ammo.connect(player_ui_controller.on_out_of_ammo)
-	weapon_manager.all_ammo_depleted.connect(player_ui_controller.on_all_ammo_depleted)
-	weapon_manager.switched_to_hand.connect(player_ui_controller.on_switched_to_hand)
+	if player_ui_controller != null:
+		health_changed.connect(player_ui_controller.on_health_changed)
+		player_died.connect(player_ui_controller.on_player_died)
+		player_hit.connect(player_ui_controller.on_player_hit)
+		self.Update_Ammo.connect(player_ui_controller.on_ammo_update)
+		weapon_manager.enemy_hit.connect(player_ui_controller.on_enemy_hit)
+		weapon_manager.out_of_ammo.connect(player_ui_controller.on_out_of_ammo)
+		weapon_manager.all_ammo_depleted.connect(player_ui_controller.on_all_ammo_depleted)
+		weapon_manager.switched_to_hand.connect(player_ui_controller.on_switched_to_hand)
+	else:
+		push_warning("[Player] PlayerUIController 缺失，HUD（血条等）将不会更新")
 	
 	# 初始不显示弹药 UI，等切换到武器时再显示
 	Ammo_container.visible = false
@@ -344,6 +331,18 @@ func _on_stats_health_changed(cur: float, max_val: float) -> void:
 	health_changed.emit(cur, max_val)
 
 
+## 读档后恢复武器槽位与弹药（由 CharacterDataManager call_deferred 触发）
+func restore_weapon_loadout(loadout: Dictionary) -> void:
+	if loadout.is_empty():
+		return
+	call_deferred("_async_restore_weapon_loadout", loadout)
+
+
+func _async_restore_weapon_loadout(loadout: Dictionary) -> void:
+	if weapon_manager and weapon_manager.has_method("apply_loadout_from_dict"):
+		await weapon_manager.apply_loadout_from_dict(loadout)
+
+
 ## 接收 AttackData（技能/武器统一受击接口）
 func apply_attack_data(attack_data: AttackData) -> void:
 	player_hit.emit()
@@ -378,6 +377,9 @@ func _notification(what: int) -> void:
 		if GeneManager.genes_changed.is_connected(playerStats.recalculate_stats):
 			GeneManager.genes_changed.disconnect(playerStats.recalculate_stats)
 		CharacterDataManager.snapshot_before_scene_change()
+		# viewmodel 容器挂在根 viewport，场景切换时不会自动释放，需显式清理
+		if weapon_manager:
+			weapon_manager.clear_all_viewmodels()
 
 
 # ═══════════════════════════════════════════════════════════════

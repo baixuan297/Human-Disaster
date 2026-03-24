@@ -5,9 +5,10 @@ extends Area3D
 # **
 
 func _on_entra_pressed():
-	CharacterDataManager.save_to_api()
-	CharacterDataManager.snapshot_before_scene_change()
-	get_tree().change_scene_to_file("res://Scene/map/world.tscn")
+	CharacterDataManager.save_to_api(func(_ok, _d):
+		CharacterDataManager.snapshot_before_scene_change()
+		get_tree().change_scene_to_file("res://Scene/map/world.tscn")
+	)
 
 
 func _on_salir_pressed():

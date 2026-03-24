@@ -40,6 +40,8 @@ signal picked_up(weapon_data: WeaponData)
 @export var reset_ammo_on_spawn:   bool = true
 ## 捡起后是否立刻切换到此武器  
 @export var auto_switch_on_pickup: bool = true
+## 重新登录/加载场景时是否再次刷新（false=拾取后永久消失，true=每次加载都出现）
+@export var respawn_on_reload: bool = false
 
 # ──── 展示效果（悬浮旋转）────
 @export var rotation_speed:   float = 1.2
@@ -55,6 +57,9 @@ func _ready() -> void:
 	# 供 InteractionComponent 识别可拾取武器；Interactable 供 interactray 显示「拾取 [E]」提示
 	add_to_group("weapon_pickup")
 	add_to_group("Interactable")
+
+	# 若已拾取且未设置可刷新，则隐藏（延迟到场景状态就绪后检查）
+	call_deferred("_check_collected")
 
 	if weapon_data == null:
 		push_error("WorldWeapon [%s]: weapon_data 未设置" % name)
@@ -123,11 +128,38 @@ func pickup(weapon_manager: WeaponManager) -> void:
 	_is_picking_up = true
 	picked_up.emit(weapon_data)
 
+	# 存档用：duplicate 会丢失 resource_path，需传入原始路径供读档恢复
 	weapon_manager.equip_weapon(
 		weapon_data.duplicate(),
 		weapon_scene,
 		viewmodel_scene,
-		auto_switch_on_pickup
+		auto_switch_on_pickup,
+		weapon_data.resource_path
 	)
 
+	# 记录已拾取，重登后不再刷新（除非 respawn_on_reload=true）
+	if not respawn_on_reload:
+		var scene_root = get_tree().current_scene
+		var scene_path = scene_root.scene_file_path if scene_root and scene_root.scene_file_path else ""
+		var node_path := str(scene_root.get_path_to(self)) if scene_root else str(get_path())
+		CharacterDataManager.record_pickable_collected(scene_path, node_path)
+
 	queue_free()
+
+
+## 检查是否已被拾取，若是则隐藏（重登后不再出现）
+func _check_collected() -> void:
+	CharacterDataManager.call_when_scene_state_ready(_do_check_collected)
+
+
+func _do_check_collected() -> void:
+	if respawn_on_reload or not is_inside_tree():
+		return
+	var scene_root = get_tree().current_scene
+	if scene_root == null:
+		return
+	var scene_path = scene_root.scene_file_path if scene_root.scene_file_path else ""
+	var node_path := str(scene_root.get_path_to(self))
+	var id_str = scene_path + "|" + node_path
+	if id_str in CharacterDataManager.get_collected_pickables():
+		queue_free()

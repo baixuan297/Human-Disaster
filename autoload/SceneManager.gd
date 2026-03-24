@@ -80,8 +80,11 @@ func instance_scene(scene_name: String, parent: Node = null) -> Node:
 		
 	
 	var scene_path = scenes[scene_name]
-	var packed_scene = load(scene_path)
-	var instance = packed_scene.instantiate()
+	var packed_scene: Resource = load(scene_path)
+	if packed_scene == null or not (packed_scene is PackedScene):
+		push_error("场景资源无效或缺失: %s" % scene_path)
+		return null
+	var instance = (packed_scene as PackedScene).instantiate()
 	
 	# 如果指定了父节点，添加到父节点下
 	if parent:

@@ -1,13 +1,16 @@
 extends Node3D
 class_name World
 
+## 主关卡根节点：玩家出生、虚空坠落、自动存档间隔、跨场景导航与敌人实例化入口。
+## 与 CharacterDataManager：依赖已登录角色的 API 存档；具体加载逻辑见 CharacterDataManager.restore_to_player。
+
 @onready var crosshair = $effects/crosshair
 @onready var crosshairhit = $effects/crosshairhit
 @onready var FPS = $UI/FPS
-@onready var interactray = $"Protagonist-FishMan/firstperson/nek/head/eyes/Camera3D/Interactable"
+@onready var interactray = $"FishMan/firstperson/nek/head/eyes/Camera3D/Interactable"
 @onready var spawns = $stage/spawns 
 @onready var navigation_region = $stage/NavigationRegion3D
-@onready var player: CharacterBody3D = $"Protagonist-FishMan"
+@onready var player: CharacterBody3D = $"FishMan"
 @onready var _1: Marker3D = $"SpawnLocation/1"
 
 # falling on void
@@ -51,9 +54,10 @@ func _input(event):
 		var collider = interactray.get_collider()
 		if collider is Interactable:
 			if collider.is_in_group("terrain"):
-				CharacterDataManager.save_to_api()
-				CharacterDataManager.snapshot_before_scene_change()
-				get_tree().change_scene_to_file("res://Scene/map/terrain.tscn")
+				CharacterDataManager.save_to_api(func(_ok, _d):
+					CharacterDataManager.snapshot_before_scene_change()
+					get_tree().change_scene_to_file("res://Scene/map/terrain.tscn")
+				)
 
 
 func _process(delta):

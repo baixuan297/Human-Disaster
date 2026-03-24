@@ -6,11 +6,14 @@ var option_menu_scene = preload("res://Scene/menu/option_menu.tscn")
 var option_menu: Control
 
 @onready var resume: Button = $Panel/VBoxContainer/resume
+@onready var exit_btn: Button = $Panel/VBoxContainer/exit
 
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
 	resume.grab_focus()
+	# 暂停时仍处理输入（父节点 PauseManager 已设 PROCESS_MODE_ALWAYS）
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 #func _on_pause_toggled(is_pause : bool):
 	#if is_pause:
@@ -30,9 +33,9 @@ func _on_resume_pressed():
 	
 
 func _on_exit_pressed():
-	#world.game_paused = false
-	#SceneManager.change_scene("main_menu")
-	#SceneManager.change_scene_to_file("res://Scene/menu/main_menu3d.tscn")
+	if exit_btn:
+		exit_btn.disabled = true
+		exit_btn.text = "Guardando..."
 	PauseManager.exit_to_main_menu()
 
 func _on_setting_pressed():

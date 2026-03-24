@@ -18,9 +18,22 @@ class_name WeaponManager
 ##         → _do_shoot() → 射线取目标点 → 当前槽 BaseWeapon.attack()
 ##         → 扣弹、发 ammo_changed
 ##
-## 【挂载位置】必须为 Camera3D 子节点，以便 _is_third_person_active() 判断视角
-##   Player/firstperson/nek/head/eyes/Camera3D/Weapon_manager (Node3D)
+## 【挂载位置】必须为 **第一人称 Camera3D** 的子节点，以便：
+##   - get_parent() → 主相机（viewmodel 同步旋转）
+##   - _is_third_person_active()：当前相机非 current 时为第三人称
+##   路径示例：Player/.../Camera3D/Weapon_manager
+##
+## 【节点绑定】在 _ready 中自动解析（无需 Player.setup 传参）：
+##   - CharacterBody3D：沿父链向上查找
+##   - 一摄瞄准：同相机下子节点 Aimray / aimrayend（可用 weapon_bind_* 覆盖）
+##   - 三摄瞄准：相对角色根 thirdperson/Camera3D/Aimray（可 export 覆盖）
 ## ═══════════════════════════════════════════════════════════════
+
+# 与 Fish_Man 等场景默认节点名一致；改名时请在检视器填 weapon_bind_* 覆盖
+const _DEFAULT_FP_RAY_NAME := "Aimray"
+const _DEFAULT_FP_RAY_END_NAME := "aimrayend"
+const _DEFAULT_TP_RAY_FROM_PLAYER := NodePath("thirdperson/Camera3D/Aimray")
+const _DEFAULT_TP_RAY_END_FROM_PLAYER := NodePath("thirdperson/Camera3D/aimrayend")
 
 # ──────────────────────────────────────────────────────────────
 #  槽位常量（对外只暴露槽位索引，不暴露内部 _slots 结构）
@@ -51,16 +64,24 @@ signal switched_to_hand
 
 
 # ──────────────────────────────────────────────────────────────
-#  运行时注入（由 Player._ready → setup() 一次性注入，避免硬编码路径）
+#  运行时引用（_ready 内 _bind_runtime_nodes 解析，或由 weapon_bind_* 覆盖）
 # ──────────────────────────────────────────────────────────────
 
-var _player:           CharacterBody3D = null
-var _world_root:       Node3D          = null  ## 子弹/弹道父节点，一般为 player.get_parent()
-var _main_camera:      Camera3D        = null  ## 每帧同步 viewmodel 的 global_transform
-var _aimray_first:     RayCast3D        = null
-var _aimray_end_first:  Node3D          = null
-var _aimray_third:     RayCast3D        = null
-var _aimray_end_third:  Node3D          = null
+## 相对 **本 WeaponManager 节点** 的一摄射线（留空则用父相机下默认子节点名）
+@export_group("可选绑定（留空=自动）", "weapon_bind_")
+@export var weapon_bind_fp_ray: NodePath = NodePath("")
+@export var weapon_bind_fp_ray_end: NodePath = NodePath("")
+## 相对 **CharacterBody3D（玩家根）** 的三摄射线；留空则用 thirdperson/Camera3D/...
+@export var weapon_bind_tp_ray: NodePath = NodePath("")
+@export var weapon_bind_tp_ray_end: NodePath = NodePath("")
+
+var _player: CharacterBody3D = null
+var _world_root: Node3D = null  ## 子弹父节点，一般为 player.get_parent()
+var _main_camera: Camera3D = null  ## 第一人称相机；每帧同步 viewmodel 旋转
+var _aimray_first: RayCast3D = null
+var _aimray_end_first: Node3D = null
+var _aimray_third: RayCast3D = null
+var _aimray_end_third: Node3D = null
 
 
 # ──────────────────────────────────────────────────────────────
@@ -85,6 +106,10 @@ var _dry_fire_played_this_trigger: bool = false
 #  生命周期
 # ═══════════════════════════════════════════════════════════════
 
+func _ready() -> void:
+	_bind_runtime_nodes()
+
+
 func _physics_process(_delta: float) -> void:
 	if Input.is_action_just_released("shoot"):
 		_dry_fire_played_this_trigger = false
@@ -97,26 +122,57 @@ func _physics_process(_delta: float) -> void:
 
 
 # ═══════════════════════════════════════════════════════════════
-#  公开 API：初始化（由 Player._ready 调用一次）
+#  内部：自发现节点（_ready，早于 Player._ready）
 # ═══════════════════════════════════════════════════════════════
 
-## 注入玩家、相机与射线引用，避免 WeaponManager 内硬编码节点路径。
-## 调用方：Player._ready() 中 weapon_manager.setup(self, player_camera, ...)
-func setup(
-	player:           CharacterBody3D,
-	main_camera:      Camera3D,
-	aimray_first:     RayCast3D,
-	aimray_end_first: Node3D,
-	aimray_third:     RayCast3D,
-	aimray_end_third: Node3D
-) -> void:
-	_player           = player
-	_world_root       = player.get_parent()  # 子弹挂到场景根，不随相机移动
-	_main_camera      = main_camera
-	_aimray_first     = aimray_first
-	_aimray_end_first = aimray_end_first
-	_aimray_third     = aimray_third
-	_aimray_end_third = aimray_end_third
+func _bind_runtime_nodes() -> void:
+	var cam := get_parent()
+	if not (cam is Camera3D):
+		push_error("WeaponManager: 父节点必须是 Camera3D（第一人称相机），当前=%s" % cam)
+		return
+	_main_camera = cam as Camera3D
+
+	_player = _find_character_body_ancestor()
+	if _player == null:
+		push_error("WeaponManager: 父链上未找到 CharacterBody3D，无法绑定玩家")
+		return
+
+	_world_root = _player.get_parent() as Node3D
+
+	# 一摄：默认同级子节点；可填相对本节点的 NodePath（如 ../Aimray）
+	if weapon_bind_fp_ray.is_empty():
+		_aimray_first = _main_camera.get_node_or_null(_DEFAULT_FP_RAY_NAME) as RayCast3D
+	else:
+		_aimray_first = get_node_or_null(weapon_bind_fp_ray) as RayCast3D
+
+	if weapon_bind_fp_ray_end.is_empty():
+		_aimray_end_first = _main_camera.get_node_or_null(_DEFAULT_FP_RAY_END_NAME) as Node3D
+	else:
+		_aimray_end_first = get_node_or_null(weapon_bind_fp_ray_end) as Node3D
+
+	# 三摄：默认相对玩家根；可填相对玩家根的 NodePath
+	var tp_ray_path := weapon_bind_tp_ray if not weapon_bind_tp_ray.is_empty() else _DEFAULT_TP_RAY_FROM_PLAYER
+	var tp_end_path := weapon_bind_tp_ray_end if not weapon_bind_tp_ray_end.is_empty() else _DEFAULT_TP_RAY_END_FROM_PLAYER
+	_aimray_third = _player.get_node_or_null(tp_ray_path) as RayCast3D
+	_aimray_end_third = _player.get_node_or_null(tp_end_path) as Node3D
+
+	if _aimray_first == null:
+		push_warning("WeaponManager: 未找到第一人称 Aimray（%s），射击瞄准可能异常" % _DEFAULT_FP_RAY_NAME)
+	if _aimray_end_first == null:
+		push_warning("WeaponManager: 未找到第一人称 aimrayend（%s）" % _DEFAULT_FP_RAY_END_NAME)
+	if _aimray_third == null:
+		push_warning("WeaponManager: 未找到第三人称瞄准射线: %s" % tp_ray_path)
+	if _aimray_end_third == null:
+		push_warning("WeaponManager: 未找到第三人称瞄准终点: %s" % tp_end_path)
+
+
+func _find_character_body_ancestor() -> CharacterBody3D:
+	var n: Node = self
+	while n:
+		if n is CharacterBody3D:
+			return n as CharacterBody3D
+		n = n.get_parent()
+	return null
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -130,7 +186,8 @@ func equip_weapon(
 	data:            WeaponData,
 	weapon_scene:    PackedScene,
 	viewmodel_scene: PackedScene,
-	auto_switch:     bool = true
+	auto_switch:     bool = true,
+	data_resource_path: String = ""
 ) -> void:
 	if data == null:
 		push_error("WeaponManager.equip_weapon: data 为 null")
@@ -164,6 +221,10 @@ func equip_weapon(
 	_slots[slot]["weapon"]    = new_weapon
 	_slots[slot]["viewmodel"] = new_vm
 	_slots[slot]["container"] = container
+	# 存档用：优先用传入的 data_resource_path（WorldWeapon 捡起时 duplicate 会丢失 path）
+	_slots[slot]["data_path"] = data_resource_path if data_resource_path != "" else (data.resource_path if data.resource_path != "" else "")
+	_slots[slot]["weapon_scene_path"] = weapon_scene.resource_path if weapon_scene.resource_path != "" else ""
+	_slots[slot]["viewmodel_scene_path"] = viewmodel_scene.resource_path if viewmodel_scene.resource_path != "" else ""
 
 	weapon_equipped.emit(data, slot)
 
@@ -335,6 +396,73 @@ func has_weapon_in_slot(slot: int) -> bool:
 	return _slots.get(slot, {}).get("data") != null
 
 
+## 退出存档：当前槽位、各槽弹药与资源路径（随 stats 一并 POST 到后端 loadout 字段）
+func get_serializable_loadout() -> Dictionary:
+	var slots_out := {}
+	for slot in [SLOT_PRIMARY, SLOT_SECONDARY]:
+		var s: Dictionary = _slots.get(slot, {})
+		var d: WeaponData = s.get("data")
+		if d == null:
+			continue
+		slots_out[str(slot)] = {
+			"data_path": s.get("data_path", ""),
+			"weapon_scene_path": s.get("weapon_scene_path", ""),
+			"viewmodel_scene_path": s.get("viewmodel_scene_path", ""),
+			"current_ammo": d.Current_Ammo,
+			"reserve_ammo": d.Reserve_Ammo,
+		}
+	return {"version": 1, "current_slot": current_slot, "slots": slots_out}
+
+
+## 读档：先清空双槽再按存档装备，最后切回记录的槽位（需 await）
+func apply_loadout_from_dict(loadout: Dictionary) -> void:
+	if loadout.get("version", 0) < 1 or _player == null:
+		return
+	for slot in [SLOT_PRIMARY, SLOT_SECONDARY]:
+		_clear_slot(slot)
+	current_slot = SLOT_HAND
+	can_shoot = false
+	_is_switching = false
+
+	var slots_data: Dictionary = loadout.get("slots", {})
+	for slot_key in slots_data:
+		var slot: int = int(slot_key)
+		if slot != SLOT_PRIMARY and slot != SLOT_SECONDARY:
+			continue
+		var entry: Dictionary = slots_data[slot_key]
+		var dp: String = str(entry.get("data_path", ""))
+		var wsp: String = str(entry.get("weapon_scene_path", ""))
+		var vsp: String = str(entry.get("viewmodel_scene_path", ""))
+		if wsp.is_empty() or vsp.is_empty() or dp.is_empty():
+			continue
+		if not ResourceLoader.exists(dp) or not ResourceLoader.exists(wsp) or not ResourceLoader.exists(vsp):
+			push_warning("[WeaponManager] 读档跳过槽 %d：资源缺失 %s" % [slot, dp])
+			continue
+		var base_res = load(dp)
+		if not (base_res is WeaponData):
+			continue
+		var wdata: WeaponData = (base_res as WeaponData).duplicate(true)
+		# 显式处理弹药：0 是有效值，必须区分「key 不存在」与「值为 0」
+		# 兼容 reserveAmmo（驼峰）与 reserve_ammo（蛇形）
+		var curr = entry.get("current_ammo", entry.get("currentAmmo"))
+		var resv = entry.get("reserve_ammo", entry.get("reserveAmmo"))
+		wdata.Current_Ammo = int(curr) if curr != null else wdata.magazine
+		wdata.Reserve_Ammo = int(resv) if resv != null else wdata.Max_Ammo
+		var ws: PackedScene = load(wsp) as PackedScene
+		var vs: PackedScene = load(vsp) as PackedScene
+		if ws == null or vs == null:
+			continue
+		equip_weapon(wdata, ws, vs, false, dp)
+
+	var target_slot: int = int(loadout.get("current_slot", SLOT_HAND))
+	if target_slot != current_slot:
+		await switch_to_slot(target_slot)
+	# 徒手槽或未走拔枪动画分支时，保证可再次操作
+	if current_slot == SLOT_HAND:
+		can_shoot = true
+		_is_switching = false
+
+
 # ═══════════════════════════════════════════════════════════════
 #  内部：射击执行（统一入口，半自动/全自动仅区分由谁调用）
 # ═══════════════════════════════════════════════════════════════
@@ -369,7 +497,7 @@ func _do_shoot(data: WeaponData) -> void:
 	if ray != null and ray.is_colliding():
 		target_pos = ray.get_collision_point()
 		if data.Auto_Fire:
-			_handle_raycast_impact(ray.get_collider(), target_pos, data)
+			_handle_raycast_impact(ray.get_collider(), target_pos, data, ray)
 	else:
 		target_pos = ray_end.global_position if ray_end != null \
 				else muzzle_pos + _player.global_transform.basis.z * -100.0
@@ -390,7 +518,7 @@ func _viewmodel_muzzle_to_world(vm: WeaponViewModel) -> Vector3:
 
 
 ## 射线命中时的伤害与推力（敌人用 AttackData，可移动物用冲量）
-func _handle_raycast_impact(collider: Node, _hit_point: Vector3, data: WeaponData) -> void:
+func _handle_raycast_impact(collider: Node, _hit_point: Vector3, data: WeaponData, aim_ray: RayCast3D = null) -> void:
 	if collider == null:
 		return
 	if collider.is_in_group("enemy") and collider.has_method("enemy_hit"):
@@ -407,7 +535,10 @@ func _handle_raycast_impact(collider: Node, _hit_point: Vector3, data: WeaponDat
 		collider.enemy_hit(attack)
 		enemy_hit.emit()
 	if collider.is_in_group("moveObject") and collider is RigidBody3D:
-		var push_dir := -_aimray_first.global_transform.basis.z.normalized()
+		var r: RayCast3D = aim_ray if aim_ray != null else _aimray_first
+		if r == null:
+			return
+		var push_dir := -r.global_transform.basis.z.normalized()
 		collider.apply_central_impulse(push_dir * 5.0)
 
 
@@ -496,6 +627,26 @@ func _find_viewmodel_in_container(container: SubViewportContainer) -> WeaponView
 #  内部：槽位与当前引用
 # ═══════════════════════════════════════════════════════════════
 
+## 释放所有 viewmodel 容器与武器节点（场景切换时调用，避免 viewmodel 残留在根 viewport）
+func clear_all_viewmodels() -> void:
+	for slot in [SLOT_PRIMARY, SLOT_SECONDARY]:
+		var s = _slots[slot]
+		if s["weapon"] != null:
+			s["weapon"].queue_free()
+			s["weapon"] = null
+		if s["container"] != null:
+			s["container"].queue_free()
+			s["container"] = null
+		s["viewmodel"] = null
+		s["data"] = null
+		s["data_path"] = ""
+		s["weapon_scene_path"] = ""
+		s["viewmodel_scene_path"] = ""
+	current_slot = SLOT_HAND
+	can_shoot = false
+	_is_switching = false
+
+
 func _clear_slot(slot: int) -> void:
 	var s = _slots[slot]
 	if s["weapon"] != null:
@@ -506,6 +657,9 @@ func _clear_slot(slot: int) -> void:
 		s["container"] = null
 	s["viewmodel"] = null
 	s["data"]      = null
+	s["data_path"] = ""
+	s["weapon_scene_path"] = ""
+	s["viewmodel_scene_path"] = ""
 
 
 func _can_fire() -> bool:

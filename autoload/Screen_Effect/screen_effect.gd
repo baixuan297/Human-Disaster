@@ -1,5 +1,8 @@
 extends CanvasLayer
 
+## ScreenEffect — 全屏闪白、淡入淡出、低血量等后处理层（autoload 场景 `screen_effect.tscn`）。
+## 由战斗、过场或 UI 按需调用 `flash` / `fade_in` 等，避免在各处重复搭 CanvasLayer。
+
 @onready var flash_rect: ColorRect = $Flash
 @onready var fade_rect: ColorRect = $Fade
 @onready var cutscene_fade_rect: ColorRect = $CutsceneFade

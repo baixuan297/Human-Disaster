@@ -9,6 +9,10 @@ class_name Stats
 # 信号
 signal health_changed(cur_health: float, max_health: float)
 signal died
+## 经验或等级变化时发出（total_exp, current_level）— 供属性 UI、HUD 刷新
+signal experience_changed(total_experience: float, current_level: int)
+## 仅当等级数字上升时发出（新等级）
+signal character_level_up(new_level: int)
 
 # -- 基础数值 --
 ## 最大生命
@@ -43,6 +47,12 @@ var current_defense: float = 5.0
 var current_critical_rate: float = 0.05
 var current_critical_damage: float = 1.50
 var current_evasion: float = 0.05
+
+# 场景伤害抗性（0.0~1.0，从 API 加载，对应 Hazard.HazardType）
+var fire_resistance: float = 0.0
+var poison_resistance: float = 0.0
+var thorns_resistance: float = 0.0
+var other_resistance: float = 0.0
 
 enum BuffableStats {
 	ATTACK,
@@ -148,8 +158,11 @@ func _on_health_set(new_value: float) -> void:
 func _on_experience_set(new_value: float) -> void:
 	var old_level: int = level
 	experience = new_value
-	if not old_level == level:
+	var new_level: int = level
+	if old_level != new_level:
 		recalculate_stats()
+		character_level_up.emit(new_level)
+	experience_changed.emit(experience, new_level)
 
 ## 重新计算属性
 func recalculate_stats() -> void:
@@ -246,7 +259,10 @@ func take_damage(attack_data: AttackData) -> void:
 	# ──────────────────────────────────────────────────────────
 	var raw_damage: float = attack_data.final_damage
 	
-	print("   攻击类型: %s" % AttackData.AttackType.keys()[attack_data.source])
+	var type_str: String = AttackData.AttackType.keys()[attack_data.source]
+	if attack_data.source == AttackData.AttackType.HAZARD and attack_data.hazard_sub_type >= 0:
+		type_str += "(%s)" % attack_data.get_hazard_type_name()
+	print("   攻击类型: %s" % type_str)
 	print("   基础伤害: %.1f" % attack_data.base_damage)
 	print("   部位倍率: %.2fx" % attack_data.body_part_multiplier)
 	print("   倍率后伤害: %.1f" % raw_damage)
@@ -254,7 +270,13 @@ func take_damage(attack_data: AttackData) -> void:
 	# ──────────────────────────────────────────────────────────
 	# 2. 应用防御减伤
 	# ──────────────────────────────────────────────────────────
-	var actual_damage:float = max(raw_damage - current_defense, 0.0)
+	var actual_damage: float = max(raw_damage - current_defense, 0.0)
+	# 场景伤害：应用抗性后至少 1 点
+	if attack_data.source == AttackData.AttackType.HAZARD:
+		var res: float = _get_hazard_resistance(attack_data.hazard_sub_type)
+		actual_damage = actual_damage * (1.0 - clampf(res, 0.0, 1.0))
+		if actual_damage < 1.0:
+			actual_damage = 1.0
 	
 	print("   当前防御: %.1f" % current_defense)
 	print("   最终伤害: %.1f" % actual_damage)
@@ -276,15 +298,27 @@ func take_damage(attack_data: AttackData) -> void:
 	print("   剩余生命: %.1f / %.1f" % [current_health, current_max_health])
 	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
+func _get_hazard_resistance(hazard_sub_type: int) -> float:
+	match hazard_sub_type:
+		0: return fire_resistance
+		1: return poison_resistance
+		2: return thorns_resistance
+		3: return other_resistance
+		_: return 0.0
+
+
 ## 恢复生命
 func heal(amount: float) -> void:
 	current_health = min(current_health + amount, current_max_health)
+	health_changed.emit(current_health, current_max_health)
 	print("%s 恢复 %.1f 点生命 (%.1f / %.1f)" % [str(self), amount, current_health, current_max_health])
 
-## 增加经验
+## 增加经验（走 setter，保证升级重算属性并发出信号）
 func gain_experience(amount: float) -> void:
-	experience += amount
-	print("%s 获得 %.1f 经验值 (当前等级 %d)" % [str(self), amount, level])
+	if amount <= 0.0:
+		return
+	experience = experience + amount
+	print("%s 获得 %.1f 经验值 (当前等级 %d, 总经验 %.0f)" % [str(self), amount, level, experience])
 
 
 
@@ -296,15 +330,21 @@ func apply_attack_data(attack_data: AttackData) -> void:
  
 ## 导出为可发送给 API 的 Dictionary
 ## 对应 CharacterStatsSaveRequest schema
+## 注意：必须保存 base_*，否则 load 时会把 current_* 当 base 再乘曲线，导致指数爆炸
 func save_to_dict() -> Dictionary:
 	return {
-		"max_health":      int(current_max_health),
-		"current_health":  int(current_health),
-		"attack":          int(current_attack),
-		"defense":         int(current_defense),
-		"critical_rate":   snappedf(current_critical_rate,   0.0001),
-		"critical_damage": snappedf(current_critical_damage, 0.0001),
-		"evasion":         snappedf(current_evasion,         0.0001),
+		"max_health":       int(base_max_health),
+		"current_health":   int(current_health),
+		"attack":           int(base_attack),
+		"defense":          int(base_defense),
+		"critical_rate":    snappedf(base_critical_rate,   0.0001),
+		"critical_damage":  snappedf(base_critical_damage, 0.0001),
+		"evasion":          snappedf(base_evasion,         0.0001),
+		"experience":       snappedf(experience, 0.01),
+		"fire_resistance":   snappedf(fire_resistance,   0.0001),
+		"poison_resistance": snappedf(poison_resistance, 0.0001),
+		"thorns_resistance": snappedf(thorns_resistance, 0.0001),
+		"other_resistance":  snappedf(other_resistance,  0.0001),
 	}
  
 ## 从 API 返回的 Dictionary 恢复属性（登录后调用一次）
@@ -312,15 +352,23 @@ func save_to_dict() -> Dictionary:
 func load_from_dict(data: Dictionary) -> void:
 	if data.is_empty():
 		return
+	# loadout 由 CharacterDataManager + WeaponManager 处理，不写入 Stats 属性
+	var d := data.duplicate(true)
+	d.erase("loadout")
 
-	var new_max_hp := float(data.get("max_health", base_max_health))
-	var new_cur_hp := float(data.get("current_health", new_max_hp))
+	var new_max_hp := float(d.get("max_health", base_max_health))
+	var new_cur_hp := float(d.get("current_health", new_max_hp))
 
 	base_max_health      = new_max_hp
-	base_attack          = float(data.get("attack",   base_attack))
-	base_defense         = float(data.get("defense",  base_defense))
-	base_critical_rate   = float(data.get("critical_rate",   0.05))
-	base_critical_damage = float(data.get("critical_damage", 1.50))
-	base_evasion         = float(data.get("evasion",         0.05))
+	base_attack          = float(d.get("attack",   base_attack))
+	base_defense         = float(d.get("defense",  base_defense))
+	base_critical_rate   = float(d.get("critical_rate",   0.05))
+	base_critical_damage = float(d.get("critical_damage", 1.50))
+	base_evasion         = float(d.get("evasion",         0.05))
+	experience = maxf(0.0, float(d.get("experience", 0.0)))
+	fire_resistance   = clampf(float(d.get("fire_resistance", 0.0)), 0.0, 1.0)
+	poison_resistance = clampf(float(d.get("poison_resistance", 0.0)), 0.0, 1.0)
+	thorns_resistance = clampf(float(d.get("thorns_resistance", 0.0)), 0.0, 1.0)
+	other_resistance  = clampf(float(d.get("other_resistance", 0.0)), 0.0, 1.0)
 	recalculate_stats()
 	current_health = clampf(new_cur_hp, 0.0, current_max_health)

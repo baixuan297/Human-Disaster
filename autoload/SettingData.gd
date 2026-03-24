@@ -1,5 +1,8 @@
 extends Node
 
+## SettingData — 运行时设置状态与默认值（音量、分辨率、键位等）
+## 与 SaveManager / SettingSignal 配合：磁盘加载结果写入 `loaded_data`，UI 通过 getter 读取。
+
 # 设置数值默认值
 @onready var DEFAULT_SETTING : DefaultSettingResource = preload("res://resource/settings/DefaultSetting.tres")
 @onready var KEYBIND_RESOURCE : KeyBindResource = preload("res://resource/settings/KeyBindDefault.tres")

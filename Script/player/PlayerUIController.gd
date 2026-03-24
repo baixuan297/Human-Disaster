@@ -56,6 +56,18 @@ func _update_hud_visibility(state: PauseManager.PauseState) -> void:
 	]
 	if ui_layer != null:
 		ui_layer.visible = not hide_hud
+		# 重新显示 HUD 时强制同步一次血条（防止信号丢失导致不同步）
+		if not hide_hud:
+			_sync_health_from_player()
+
+
+func _sync_health_from_player() -> void:
+	var p := CharacterDataManager.get_player() if CharacterDataManager else null
+	if p == null:
+		return
+	var ps = p.get("playerStats")
+	if ps and ps.get("current_health") != null and ps.get("current_max_health") != null:
+		_apply_health_ui(float(ps.current_health), float(ps.current_max_health))
 
 
 func _apply_health_ui(current: float, maximum: float) -> void:

@@ -310,12 +310,15 @@ func find_item_index(item: InventoryItem) -> int:
 	return -1
 
 ## 存档用：导出可序列化的背包数据（按槽位，空槽为 null）
+## id 必须为 int，后端 game.items 以 item_id (int) 校验
 func get_serializable_inventory() -> Array:
 	var result: Array = []
 	result.resize(max_slots)
 	for i in range(max_slots):
 		if items[i]:
-			result[i] = { "id": items[i].data.id, "qty": items[i].quantity }
+			var id_val = items[i].data.id
+			var id_int := int(id_val) if str(id_val).is_valid_int() else 0
+			result[i] = { "id": id_int, "qty": items[i].quantity }
 		else:
 			result[i] = null
 	return result

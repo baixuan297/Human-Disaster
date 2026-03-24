@@ -100,9 +100,11 @@ func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: D
 | `save_skills(character_id, skills_dict, callback)` | `/characters/{id}/skills` | POST | 保存技能 |
 | `load_skills(character_id, callback)` | `/characters/{id}/skills` | GET | 加载技能 |
 | `load_stats(character_id, callback)` | `/characters/{id}/stats` | GET | 加载角色属性 |
-| `save_stats(character_id, stats_dict, callback)` | `/characters/{id}/stats` | POST | 保存角色属性 |
+| `save_stats(character_id, stats_dict, callback)` | `/characters/{id}/stats` | POST | 保存角色属性（含 `experience`、`loadout`、`scene_state` 等与后端 `CharacterStatsSaveRequest` 对齐的字段；`Stats.save_to_dict()` 已包含 `experience`） |
 | `load_genes(character_id, callback)` | `/characters/{id}/genes` | GET | 加载角色基因 |
 | `save_genes(character_id, genes_list, callback)` | `/characters/{id}/genes` | POST | 保存角色基因（全量） |
+| `save_scene_state(character_id, data, callback)` | `/characters/{id}/scene_state` | POST | 保存场景状态（scene_path, position, rotation_y） |
+| `load_scene_state(character_id, callback)` | `/characters/{id}/scene_state` | GET | 加载场景状态 |
 | `unlock_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/unlock` | POST | 解锁基因 |
 | `upgrade_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/upgrade` | POST | 升级基因 |
 | `toggle_gene(character_id, gene_id, is_active, callback)` | `/characters/{id}/genes/toggle` | POST | 激活/停用基因 |
@@ -169,9 +171,15 @@ ApiManager.save_stats(character_id, player_stats.save_to_dict(), func(success, r
 
 ---
 
-## 八、API 测试
+## 八、API 测试（api_test）
 
-`test/api_test.gd` 覆盖所有 API 路径，运行 `test/api_test.tscn` 可验证接口连通性：
+`test/api_test.gd` 配合 **`test/api_test.tscn`** 用于：
+
+1. **连通性**：客户端到后端 `API_BASE_URL` 是否可达（网络、防火墙、服务是否监听 `0.0.0.0`）。  
+2. **后端对接**：各路径的请求/响应是否与当前 FastAPI 路由及 JSON 字段一致（契约校验）。  
+3. **架构一致**：所有调用走本模块 **`ApiManager` 封装**（与 `CharacterDataManager` / `GameDataManager` 相同入口），确保联调结果能代表正式游戏内的 API 使用方式。
+
+运行 `test/api_test.tscn` 后按控制台步骤查看 ✅/❌。覆盖路径如下：
 
 | 序号 | 路径 | 说明 |
 |------|------|------|
@@ -181,6 +189,7 @@ ApiManager.save_stats(character_id, player_stats.save_to_dict(), func(success, r
 | 4 | GET /characters | 角色列表 |
 | 4b | POST /characters | 创建角色（无角色时） |
 | 5-10 | /characters/{id}/inventory, skills, stats | 背包/技能/属性 加载与保存 |
+| 10a | /characters/{id}/scene_state | 场景状态（场景路径、位置、朝向） |
 | 10b | /characters/{id}/genes | 基因加载/保存（可选） |
 | 11-13 | GET /game-data/items, skills, genes | 静态数据（无需 token） |
 | 14 | POST /send_verification | 发送验证码 |

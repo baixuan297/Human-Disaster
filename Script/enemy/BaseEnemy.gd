@@ -16,12 +16,16 @@ signal enemy_hit
 
 # ── 节点引用 ──────────────────────────────────────────────────────────────────
 @export var stats: Stats
+## 击杀时奖励给「最后一击」来源（沿节点树向上查找 Player 组）的经验
+@export var experience_reward: float = 25.0
 
 @onready var health_bar = $Stats/SubViewport/health_bar
 @onready var stats_node: Node3D = $Stats          ## 头顶血条容器
 
 # Hurtboxes 在 _ready 内安全获取，子类可覆盖
 var hurt_boxes: Area3D
+## 最后一次有效伤害的来源（武器/技能发起者），用于结算经验
+var _last_damage_attacker: Node = null
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -50,6 +54,7 @@ func _ready() -> void:
 
 func _on_area_3d_body_part_hit(attack_data: AttackData) -> void:
 	enemy_hit.emit()
+	_record_last_attacker(attack_data)
 	stats.take_damage(attack_data)
 
 
@@ -65,6 +70,7 @@ func _on_health_changed(cur_health: float, max_health: float) -> void:
 
 func _on_died() -> void:
 	print("💀 敌人死亡")
+	_grant_experience_to_killer()
 	delete_collision_nodes(self)
 	if stats_node:
 		stats_node.queue_free()
@@ -101,6 +107,8 @@ func apply_dot(
 			return
 
 		ticks_done[0] += 1
+
+		_set_last_attacker_node(source)
 
 		# 构造无部位倍率的技能攻击数据
 		var attack := AttackData.new()
@@ -179,7 +187,32 @@ func apply_attack_data(attack_data: AttackData) -> void:
 	if attack_data == null:
 		return
 	enemy_hit.emit()
+	_record_last_attacker(attack_data)
 	stats.take_damage(attack_data)
+
+
+func _set_last_attacker_node(src: Node) -> void:
+	if src != null and is_instance_valid(src):
+		_last_damage_attacker = src
+
+
+func _record_last_attacker(attack_data: AttackData) -> void:
+	if attack_data == null:
+		return
+	_set_last_attacker_node(attack_data.source_node)
+
+
+func _grant_experience_to_killer() -> void:
+	if experience_reward <= 0.0:
+		return
+	var node: Node = _last_damage_attacker
+	while node != null:
+		if node.is_in_group("Player"):
+			var ps: Variant = node.get("playerStats")
+			if ps is Stats:
+				(ps as Stats).gain_experience(experience_reward)
+			return
+		node = node.get_parent()
 
 
 ## 递归清除碰撞体（死亡时防止尸体继续挡路）

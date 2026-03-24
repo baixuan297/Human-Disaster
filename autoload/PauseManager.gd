@@ -59,8 +59,8 @@ func _handle_escape_press() -> void:
 			pass
 
 
-func _close_ui_from_ui_manager(ui: String):
-	print(ui)
+func _close_ui_from_ui_manager(ui: String) -> void:
+	print_debug("[PauseManager] UIManager 关闭: ", ui)
 	match ui:
 		"InventoryUI":
 			close_inventory()
@@ -143,22 +143,23 @@ func close_pause_menu() -> void:
 	CharacterDataManager.save_to_api()
 
 
-## 退出到主菜单
+## 退出到主菜单（先完整保存再切场景）
 func exit_to_main_menu() -> void:
-	CharacterDataManager.save_to_api(Callable(), true)
-	# 移除暂停菜单
+	if UserManager.current_character_id.is_empty():
+		_do_exit_to_main_menu()
+		return
+	CharacterDataManager.save_to_api(func(_success, _resp):
+		_do_exit_to_main_menu()
+	, true)
+
+
+func _do_exit_to_main_menu() -> void:
 	if pause_menu_instance:
 		pause_menu_instance.queue_free()
 		pause_menu_instance = null
-	
-	# 恢复游戏状态
 	get_tree().paused = false
-	# 把停止的状态取出，不然会卡住
 	pop_state(PauseState.PAUSED)
-	
-	# 显示鼠标
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	# 切换到主菜单场景
 	SceneManager.change_scene("main_menu")
 
 

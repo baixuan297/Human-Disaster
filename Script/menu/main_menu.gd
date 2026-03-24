@@ -63,7 +63,7 @@ func _on_ayuda_pressed():
 
 func _on_salir_pressed():
 	sound_effect.play(0.0)
-	get_tree().quit()
+	CharacterDataManager.save_on_exit_then_quit()
 	
 func _on_music_pressed():
 	if inimusic.is_playing():
