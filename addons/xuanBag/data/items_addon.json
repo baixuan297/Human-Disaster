@@ -1,0 +1,241 @@
+{
+  "version": "2.2.0",
+  "source": "与 StarshipBackend/PSQL_DH/game_data/items.json 同步的增量条目；完整目录以 game_data 为准，运行 seeder 写入 DB。",
+  "items": [
+	{
+	  "item_id": 1003001,
+	  "name": "M9 Beretta",
+	  "description": "一把标准制式手枪，来自旧时代军队的遗留物。在基因战争爆发前广泛装备，如今已显得过时，但仍然可靠。",
+	  "item_type": "WEAPON",
+	  "equip_slot": "weapon",
+	  "stackable": false,
+	  "max_stack": 1,
+	  "rarity": "COMMON",
+	  "icon_path": "icons/weapons/m9_beretta.png",
+	  "metadata": {
+		"weapon_class": "pistol",
+		"damage": 28,
+		"attack_speed": 1.8,
+		"crit_rate_bonus": 0.02,
+		"range": 35,
+		"ammo_type": "standard_9mm",
+		"tech_level": 1,
+		"flavor": "旧世界的记忆，新世界的求生工具。"
+	  }
+	},
+	{
+	  "item_id": 1003009,
+	  "name": "MP7",
+	  "description": "德国工业时代的遗产，基因战争前最后一批量产的冲锋枪之一。枪身斑驳生锈，弹匣用胶带缠着，但枪机依然能咬合。旧时代的钢铁，在新时代的废土上苟延残喘。",
+	  "item_type": "WEAPON",
+	  "equip_slot": "weapon",
+	  "stackable": false,
+	  "max_stack": 1,
+	  "rarity": "COMMON",
+	  "icon_path": "icons/weapons/mp7.png",
+	  "metadata": {
+		"weapon_class": "smg",
+		"damage": 18,
+		"attack_speed": 3.2,
+		"crit_rate_bonus": 0.01,
+		"range": 25,
+		"ammo_type": "standard_4.6mm",
+		"tech_level": 1,
+		"magazine_size": 40,
+		"fire_mode": "full_auto",
+		"special_effect": "连续射击：连续命中同一目标 5 次后，第 6 发造成双倍伤害",
+		"era": "pre_gene_war",
+		"flavor": "它不精准，它不强大，但它还在开枪——这已经够了。"
+	  }
+	},
+	{
+	  "item_id": 1003010,
+	  "name": "X-87 异星脉冲步枪",
+	  "description": "回收自深空残骸的试验武器。枪体合金无法被地球光谱解析，击发时枪膛内会形成瞬态冷凝等离子体束。人类工程师只弄懂了一半原理——另一半仍在拒绝被理解。",
+	  "item_type": "WEAPON",
+	  "equip_slot": "weapon",
+	  "stackable": false,
+	  "max_stack": 1,
+	  "rarity": "LEGENDARY",
+	  "icon_path": "res://addons/xuanBag/img/item_icon/weapon/X-87 异星脉冲步枪.jpg",
+	  "metadata": {
+		"weapon_class": "rifle",
+		"damage": 210,
+		"attack_speed": 0.55,
+		"crit_rate_bonus": 0.12,
+		"crit_damage_bonus": 0.45,
+		"range": 120,
+		"ammo_type": "x87_energy_cell",
+		"tech_level": 11,
+		"element": "exotic",
+		"special_effect": "异相过载：每第 3 发造成 180% 伤害并短暂穿透护盾",
+		"flavor": "它记得的星空，比人类史书更长。"
+	  }
+	},
+	{
+	  "item_id": 1001010,
+	  "name": "标准 9×19mm 弹药盒",
+	  "description": "北约规格手枪弹，黄铜被甲铅芯。旧军规封装，干燥剂仍有效。适用于 M9 Beretta 等制式手枪。",
+	  "item_type": "MATERIAL",
+	  "equip_slot": null,
+	  "stackable": true,
+	  "max_stack": 999,
+	  "rarity": "COMMON",
+	  "icon_path": "res://addons/xuanBag/img/item_icon/weapon/标准 9×19mm 弹药盒.png",
+	  "metadata": {
+		"craft_category": "ammo",
+		"ammo_type": "standard_9mm",
+		"units_per_stack": 30,
+		"flavor": "便宜、笨重、可靠。"
+	  }
+	},
+	{
+	  "item_id": 1001011,
+	  "name": "4.6×30mm PDW 弹药盒",
+	  "description": "个人防卫武器口径高速弹，钢芯穿甲弹头。为 MP7 等紧凑型冲锋枪优化，近距离侵彻力出色。",
+	  "item_type": "MATERIAL",
+	  "equip_slot": null,
+	  "stackable": true,
+	  "max_stack": 999,
+	  "rarity": "COMMON",
+	  "icon_path": "res://addons/xuanBag/img/item_icon/weapon/4.6×30mm PDW 弹药盒.png",
+	  "metadata": {
+		"craft_category": "ammo",
+		"ammo_type": "standard_4.6mm",
+		"units_per_stack": 40,
+		"flavor": "小口径，大脾气。"
+	  }
+	},
+	{
+	  "item_id": 1001012,
+	  "name": "X-87 冷凝能量单元",
+	  "description": "与 X-87 配套的可更换储能芯。外壳刻有非地球几何散热纹，充满后会在低温下微微发蓝光。",
+	  "item_type": "MATERIAL",
+	  "equip_slot": null,
+	  "stackable": true,
+	  "max_stack": 99,
+	  "rarity": "RARE",
+	  "icon_path": "res://addons/xuanBag/img/item_icon/weapon/X-87 冷凝能量单元.png",
+	  "metadata": {
+		"craft_category": "ammo",
+		"ammo_type": "x87_energy_cell",
+		"units_per_stack": 20,
+		"flavor": "拿稳。它在呼吸。"
+	  }
+	},
+	{
+	  "item_id": 1011005,
+	  "name": "神经镇静合剂",
+	  "description": "合成 GABA 调节物与微量镇静纳米雾的口服安瓿。用于战后急性应激与基因过载引发的震颤，可快速稳定心率。",
+	  "item_type": "POTION",
+	  "equip_slot": null,
+	  "stackable": true,
+	  "max_stack": 8,
+	  "rarity": "COMMON",
+	  "icon_path": "icons/potions/neuro_calm.png",
+	  "metadata": {
+		"restore_health": 45,
+		"buff": "镇静",
+		"buff_effect": {
+		  "defense_bonus": 12,
+		  "duration_sec": 25
+		},
+		"cooldown_sec": 45,
+		"flavor": "世界变吵之前，先让神经安静。"
+	  }
+	},
+	{
+	  "item_id": 1011006,
+	  "name": "螯合抗辐碘剂",
+	  "description": "稳定碘同位素与重金属螯合剂的复方注射液，用于短期抵御电离辐射与毒性尘埃。副作用：口渴与轻微视觉迟滞。",
+	  "item_type": "POTION",
+	  "equip_slot": null,
+	  "stackable": true,
+	  "max_stack": 5,
+	  "rarity": "UNCOMMON",
+	  "icon_path": "icons/potions/rad_chelate.png",
+	  "metadata": {
+		"buff": "辐射耐受",
+		"buff_effect": {
+		  "other_resistance": 0.35,
+		  "duration_sec": 120
+		},
+		"after_effect": {
+		  "evasion_penalty": -0.05,
+		  "duration_sec": 30
+		},
+		"cooldown_sec": 180,
+		"flavor": "铅与碘，废土里的老朋友。"
+	  }
+	},
+	{
+	  "item_id": 1000004,
+	  "name": "实验室合金钥匙",
+	  "description": "碳素科技地下生化实验室的实体备用钥匙，齿形与常规锁芯不兼容。钥匙柄内嵌低频识别芯片，靠近门禁时绿灯会闪两下——前提是供电系统还活着。",
+	  "item_type": "TOOL",
+	  "equip_slot": null,
+	  "stackable": false,
+	  "max_stack": 1,
+	  "rarity": "RARE",
+	  "icon_path": "res://addons/xuanBag/img/item_icon/tools/实验室合金钥匙.png",
+	  "metadata": {
+		"tool_type": "access_key",
+		"unlock_hint": "lab_biochem_wing",
+		"tradeable": false,
+		"flavor": "门后可能是答案，也可能是代价。"
+	  }
+	},
+	{
+	  "item_id": 1000005,
+	  "name": "B-7 区门禁卡",
+	  "description": "磁条与 RFID 双模员工卡，权限标记为「维护 / B-7 仓储与通道」。照片区的头像已被刮花，只剩工号：7749。",
+	  "item_type": "TOOL",
+	  "equip_slot": null,
+	  "stackable": false,
+	  "max_stack": 1,
+	  "rarity": "UNCOMMON",
+	  "icon_path": "icons/tools/keycard_b7.png",
+	  "metadata": {
+		"tool_type": "keycard",
+		"unlock_hint": "sector_b7_doors",
+		"tradeable": true,
+		"flavor": "权限即边界。"
+	  }
+	},
+	{
+	  "item_id": 1001013,
+	  "name": "星币",
+	  "description": "星舰港与轨道城流通的数字货币代币实体晶片，可插入任意标准支付槽。一枚星币的购买力约等于底层区三天的合成口粮——当然，黑市汇率总在变。",
+	  "item_type": "MATERIAL",
+	  "equip_slot": null,
+	  "stackable": true,
+	  "max_stack": 999999,
+	  "rarity": "COMMON",
+	  "icon_path": "icons/materials/star_coin.png",
+	  "metadata": {
+		"craft_category": "currency",
+		"is_currency": true,
+		"currency_code": "STAR",
+		"flavor": "闪亮、便携、让人愿意冒险。"
+	  }
+	},
+	{
+	  "item_id": 1000006,
+	  "name": "身份重编码券",
+	  "description": "星际公民管理局签发的单次「合法改名」授权码，印在防篡改全息膜上。刮开涂层后需在 72 小时内于任意登记终端完成同步，否则作废。玩家俗称：改名卡。",
+	  "item_type": "TOOL",
+	  "equip_slot": null,
+	  "stackable": true,
+	  "max_stack": 20,
+	  "rarity": "EPIC",
+	  "icon_path": "icons/tools/rename_token.png",
+	  "metadata": {
+		"tool_type": "consumable_service",
+		"service": "character_rename",
+		"uses_per_item": 1,
+		"tradeable": false,
+		"flavor": "你可以换一个名字，但换不了做过的事。"
+	  }
+	}
+  ]
+}
