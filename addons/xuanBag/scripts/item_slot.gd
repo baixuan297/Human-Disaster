@@ -35,35 +35,15 @@ func _ready():
 	border.color = Color.WHITE
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	
-func _process(delta):
-	# 如果正在拖拽 那么创建一个预览图
+func _process(_delta: float) -> void:
 	if is_dragging and drag_preview:
 		drag_preview.global_position = get_global_mouse_position() - Vector2(16, 16)
-		
-		# 结束拖拽
 		if Input.is_action_just_released("ui_accept") or not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 			_end_drag()
-	
-	# 如果选择了物品，则记录物品id
-	if is_selected and item:
+
+	if is_selected and item and item.data:
 		current_selected_id = item.data.id
-		#print(current_selected_id)
-	
-	if current_selected_id != old_selected_id and current_selected_slot != null:
-		set_selected(false)
-		old_selected_id = ""
-		
-# 拖拽处理
-	if is_dragging and drag_preview:
-		drag_preview.global_position = get_global_mouse_position() - Vector2(16, 16)
-		
-		if Input.is_action_just_released("ui_accept") or not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-			_end_drag()
-	
-	# 选择状态处理
-	if is_selected and item:
-		current_selected_id = item.data.id
-	
+
 	if current_selected_id != old_selected_id and current_selected_slot != null:
 		set_selected(false)
 		old_selected_id = ""
@@ -97,38 +77,33 @@ func update_display():
 		border.visible = false
 
 # 操作函数
-func _on_gui_input(event: InputEvent):
-	if event is InputEventMouseButton:
-		var mouse_event = event as InputEventMouseButton
-		
-		if mouse_event.pressed:
-			if mouse_event.button_index == MOUSE_BUTTON_LEFT:
-				if item:
-					_handle_selection()
-					old_selected_id = item.data.id
-					#print(old_selected_id)
-				item_clicked.emit(self)
-				
-				if item:
-					_start_drag()
-			elif mouse_event.button_index == MOUSE_BUTTON_RIGHT:
-				item_right_clicked.emit(self)
+func _on_gui_input(event: InputEvent) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mouse_event := event as InputEventMouseButton
+	if not mouse_event.pressed:
+		return
+
+	if mouse_event.button_index == MOUSE_BUTTON_LEFT:
+		if item and item.data:
+			_handle_selection()
+			old_selected_id = item.data.id
+		item_clicked.emit(self)
+		if item and item.data:
+			_start_drag()
+	elif mouse_event.button_index == MOUSE_BUTTON_RIGHT:
+		item_right_clicked.emit(self)
 
 # 选择处理
-func _handle_selection():
-	if not item:
+func _handle_selection() -> void:
+	if not item or not item.data:
 		return
-		
-	# 如果已选中，则取消选中
 	if current_selected_slot == self:
 		set_selected(false)
 		current_selected_slot = null
 	else:
-		# 取消选中前一个物品格
-		if current_selected_slot:
+		if current_selected_slot and is_instance_valid(current_selected_slot):
 			current_selected_slot.set_selected(false)
-		
-		# 选中当前
 		set_selected(true)
 		current_selected_slot = self
 		old_selected_id = item.data.id
@@ -189,42 +164,37 @@ func stop_rotation_animation():
 	rotation_tween.tween_property(icon, "rotation", 0.0, 0.3)
 
 # 开始拖拽
-func _start_drag():
-	if not item:
+func _start_drag() -> void:
+	if not item or not item.data:
 		return
-	
 	is_dragging = true
 	item_drag_started.emit(self)
-	
-	# 创建拖拽预览
+
 	drag_preview = Control.new()
-	var preview_icon = TextureRect.new()
+	drag_preview.process_mode = Node.PROCESS_MODE_ALWAYS
+	var preview_icon := TextureRect.new()
 	preview_icon.texture = item.data.icon
 	preview_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview_icon.custom_minimum_size = Vector2(128, 128)
 	drag_preview.add_child(preview_icon)
-	get_tree().current_scene.add_child(drag_preview)
+	var inv_ui := get_tree().get_first_node_in_group("inventory_ui")
+	if inv_ui:
+		inv_ui.add_child(drag_preview)
+	else:
+		get_tree().current_scene.add_child(drag_preview)
 
-# 停止拖拽
-func _end_drag():
+func _end_drag() -> void:
 	if not is_dragging:
 		return
-	
 	is_dragging = false
 	if drag_preview:
 		drag_preview.queue_free()
 		drag_preview = null
-	
-	# 检测拖拽目标
-	var space_state = get_world_2d().direct_space_state
-	var query = PhysicsPointQueryParameters2D.new()
-	query.position = get_global_mouse_position()
-	
-	# 找到鼠标下的ItemSlot
-	var target_slot = _find_slot_at_position(get_global_mouse_position())
+
+	var target_slot := _find_slot_at_position(get_global_mouse_position())
 	if target_slot and target_slot != self:
 		item_dropped.emit(self, target_slot)
-		set_selected(false) # **
+		set_selected(false)
 
 # 找到物品格的位置
 func _find_slot_at_position(pos: Vector2) -> ItemSlot:

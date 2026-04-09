@@ -1,6 +1,7 @@
 ## BaseEnemy.gd — 所有敌人的基类
 ##
 ## 架构：Stats 为血量唯一来源，伤害统一走 stats.take_damage(AttackData)
+## 敌人 Stats 应设 level_derived_from_experience = false，用 fixed_combat_level 表示当前等级（不获得经验）
 ##   Hurtboxes.body_part_hit → _on_area_3d_body_part_hit → stats.take_damage
 ##   stats.health_changed → _on_health_changed → 更新血条 UI
 ##   stats.died → _on_died → 清理并 queue_free
@@ -62,10 +63,10 @@ func _on_area_3d_body_part_hit(attack_data: AttackData) -> void:
 # 属性 / 死亡信号回调（子类可 override）
 # ═══════════════════════════════════════════════════════════════════
 
-func _on_health_changed(cur_health: float, max_health: float) -> void:
+func _on_health_changed(current_health: float, maximum_health: float) -> void:
 	if health_bar:
 		health_bar.value = _health_percent()
-	print("敌人当前血量: %.1f / %.1f" % [cur_health, max_health])
+	print("敌人当前血量: %.1f / %.1f" % [current_health, maximum_health])
 
 
 func _on_died() -> void:
@@ -208,9 +209,9 @@ func _grant_experience_to_killer() -> void:
 	var node: Node = _last_damage_attacker
 	while node != null:
 		if node.is_in_group("Player"):
-			var ps: Variant = node.get("playerStats")
-			if ps is Stats:
-				(ps as Stats).gain_experience(experience_reward)
+			var player_stats_resource: Variant = node.get("player_stats")
+			if player_stats_resource is Stats:
+				(player_stats_resource as Stats).gain_experience(experience_reward)
 			return
 		node = node.get_parent()
 

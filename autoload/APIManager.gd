@@ -9,7 +9,10 @@ extends Node
 ## 依赖：project.godot 中注册为 ApiManager（autoload）
 
 # ── 配置（部署时需修改）────────────────────────────────────────────────────────
-const API_BASE_URL = "http://192.168.1.100:8000"
+# FastAPI 游戏后端（PSQL_DH）默认端口 8000；虚拟机内需 uvicorn --host 0.0.0.0 或 python main.py。
+# 宿主机 NAT 端口转发（主机:8000 → 虚拟机:8000）时，在物理机 Godot 上使用 127.0.0.1。
+# 桥接网络时改为虚拟机局域网 IP。Ionic（StarShipDH）连 Spring Boot 用 :8080，勿与本常量混淆。
+const API_BASE_URL = "http://127.0.0.1:8000"
 var jwt_token := ""
 ## 请求超时秒数（网络不稳定或后端冷启动时可适当增大）
 var timeout_sec: float = 25.0

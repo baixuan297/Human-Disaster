@@ -172,8 +172,8 @@ func _apply_damage_to(target: Node) -> void:
 		# 若发射者为玩家，使用玩家暴击率与暴击倍率覆盖
 		var override_crit_rate: float = -1.0
 		var override_crit_mult: float = -1.0
-		if _shooter and _shooter.get("playerStats"):
-			var s = _shooter.playerStats
+		if _shooter and _shooter.get("player_stats"):
+			var s = _shooter.player_stats
 			if s:
 				override_crit_rate = s.current_critical_rate
 				override_crit_mult = s.current_critical_damage

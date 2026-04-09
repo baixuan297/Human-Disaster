@@ -39,7 +39,7 @@ flowchart TB
 - **CharacterGeneState**：角色基因运行时状态（Resource），对标 InventoryItem，脏标记缓存 `_cache_dirty`。
 - **GeneManager**：Autoload 单例，基因定义缓存、状态管理、槽位/前置检查、属性加成汇总。
 - **Stats**：`recalculate_stats()` 内调用 `GeneManager.get_bonuses()` 叠加属性。
-- **Player**：`_setup_player_stats()` 中 `GeneManager.genes_changed.connect(playerStats.recalculate_stats)`，场景切换时 `_notification(PREDELETE)` 断开连接。
+- **Player**：`_setup_player_stats()` 中 `GeneManager.genes_changed.connect(player_stats.recalculate_stats)`，场景切换时 `_notification(PREDELETE)` 断开连接。
 
 ---
 

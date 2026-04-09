@@ -14,6 +14,7 @@ CharacterDataManager 是**角色数据加载/保存**的全局统一入口，负
 | **Autoload 名称** | `CharacterDataManager` |
 | **依赖** | UserManager、ApiManager、InventoryManager、SkillManager、GameDataManager |
 | **基因** | GeneManager（Autoload），见 [GENE_SYSTEM.md](GENE_SYSTEM.md) |
+| **客户端专属** | 第一/第三人称相机、`PlayerViewPaths`、场景节点层级**不**写入 stats API；持久化仍为属性、背包、技能、基因、`loadout`（武器槽）、`scene_path` / `position` / `rotation_y` 等（见 [PLAYER_CAMERA_AND_MOVEMENT.md](PLAYER_CAMERA_AND_MOVEMENT.md) §7） |
 
 ---
 
@@ -37,7 +38,7 @@ Player._ready 末尾调用 CharacterDataManager.restore_to_player(self)
     ↓
 CharacterDataManager.snapshot_before_scene_change()
     ↓
-快照 Stats / Inventory / Skills 到内存
+快照 Stats / Inventory / Skills / Genes / 场景状态 到内存
 ```
 
 ### 2.3 保存流程（save_to_api）
@@ -48,6 +49,8 @@ CharacterDataManager.snapshot_before_scene_change()
 CharacterDataManager.save_to_api()
     ↓
 先快照，再并行请求 API（10 秒冷却，force=true 可忽略）
+    ↓
+背包 / 技能 / 基因 各 1 次 POST；属性为 1 次 POST（stats.save_to_dict 含 experience、loadout，并可合并 scene_state）
     ↓
 character_data_save_completed.emit()
 ```
@@ -166,14 +169,16 @@ var player = CharacterDataManager.get_player()
 
 ---
 
-## 五、保存触发时机
+## 五、保存触发时机与保存内容
 
 | 时机 | 调用位置 |
 |------|----------|
 | 自动保存（每 120 秒） | world.gd `_process` |
 | 关闭暂停菜单（ESC） | PauseManager.close_pause_menu() |
-| 退出到主菜单 | PauseManager.exit_to_main_menu() |
+| 退出到主菜单 | PauseManager.exit_to_main_menu()（**先完整保存再切场景**） |
 | 切换场景前 | world.gd 交互切到 terrain；TutorialController 传送到 training_ground；portal 进入 world |
+
+**保存内容**：角色属性（血量、攻防等）、武器槽位与弹药、背包、技能等级、基因、**场景状态**（场景路径、玩家位置与朝向）。
 
 ---
 
@@ -183,7 +188,7 @@ var player = CharacterDataManager.get_player()
 |------|------|
 | `character_data_loaded` | 从 API 加载完成 |
 | `character_data_save_completed` | 保存完成 |
-| `data_error` | 存档失败时发出（含原因字符串） |
+| `data_error` | 存档失败时发出（含原因字符串）；`CharacterDataManager` 内部已连接 **`GBMssage.show_message(..., "error")`** 与 `push_warning`，玩家可见 Toast |
 
 ---
 
@@ -191,7 +196,7 @@ var player = CharacterDataManager.get_player()
 
 - **UserManager.current_character_id** 非空（登录后由 `list_characters` 或 `/me` 填充）
 - **Player 节点** 需加入 `"Player"` 组
-- **Player** 需有 `playerStats` 属性，且 Stats 实现 `load_from_dict` / `save_to_dict`
+- **Player** 需有 `player_stats` 属性，且 Stats 实现 `load_from_dict` / `save_to_dict`
 
 ---
 
@@ -204,7 +209,7 @@ var player = CharacterDataManager.get_player()
 | [GameDataManager.md](GameDataManager.md) | 静态数据加载 |
 | [DAMAGE_SYSTEM.md](DAMAGE_SYSTEM.md) | 伤害与 Stats 流程 |
 | [GENE_SYSTEM.md](GENE_SYSTEM.md) | 基因模块（待接入） |
-| `test/api_test.gd` | 覆盖所有 API 路径的测试脚本 |
+| `test/api_test.gd` | 经 APIManager 覆盖主要 API，用于连通性、与后端契约及架构联调（见 `docs/TESTING.md`） |
 
 ---
 

@@ -320,8 +320,8 @@ func _on_attack_anim_done() -> void:
 # =============================================================================
 
 ## 覆盖 BaseEnemy._on_health_changed — 受击时触发硬直判定
-func _on_health_changed(cur_health: float, max_health: float) -> void:
-	super._on_health_changed(cur_health, max_health)
+func _on_health_changed(current_health: float, maximum_health: float) -> void:
+	super._on_health_changed(current_health, maximum_health)
 	on_received_damage()
 
 

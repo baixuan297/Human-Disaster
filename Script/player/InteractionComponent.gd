@@ -66,16 +66,7 @@ func on_interact_pressed() -> void:
 		return
 
 	if collider.is_in_group("chest"):
-		InventoryManager.add_item_by_numeric_id(201, 1)
-		InventoryManager.add_item_by_numeric_id(202, 1)
-		InventoryManager.add_item_by_numeric_id(203, 1)
-		InventoryManager.add_item_by_numeric_id(251, 99)
-		InventoryManager.add_item_by_numeric_id(252, 999)
-		InventoryManager.add_item_by_numeric_id(253, 99)
-		InventoryManager.add_item_by_numeric_id(101, 3)
-		InventoryManager.add_item_by_numeric_id(102, 99999)
-		InventoryManager.add_item_by_numeric_id(103, 1)
-		InventoryManager.add_item_by_numeric_id(100, 1)
+		GameItemIds.grant_standard_test_bundle(InventoryManager)
 		return
 
 	# 未命中上述交互对象时，尝试用 pickray 拾取 RigidBody

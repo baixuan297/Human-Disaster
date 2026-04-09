@@ -7,9 +7,9 @@
 ##   · 不直接操作 UI，通过信号通知 UI 数据就绪
 ##
 ## 使用方式：
-##   var item = GameDataManager.get_item(1001)
+##   var item = GameDataManager.get_item(1003001)
 ##   var skill = GameDataManager.get_skill_by_name("钛石冲击")
-##   var gene  = GameDataManager.get_gene(3001)
+##   var gene  = GameDataManager.get_gene(2003001)
 
 extends Node
 

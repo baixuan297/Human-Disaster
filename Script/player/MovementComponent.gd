@@ -1,6 +1,5 @@
 extends Node
-## 移动与状态机：从 InputController 取输入，更新状态与速度，驱动 CharacterBody3D。
-## 滑铲、蹲、跑、跳跃集中在此；动画由 current_state 驱动。音效由 MovementAudioComponent 根据状态驱动。
+## 移动状态机；不引用 Camera。水平 Basis 来自 `external_movement_basis_provider`；WASD 经 `remap_move_input`（TP 原样 / FP 双负）。
 
 signal landed
 signal jumped
@@ -35,7 +34,6 @@ var collision_stand: CollisionShape3D
 var collision_crouch: CollisionShape3D
 var head: Node3D
 var animation_tree: AnimationTree
-var player_mesh: Node3D
 
 # ──── 状态与运行时
 var current_state: PlayerState = PlayerState.IDLE
@@ -45,6 +43,10 @@ var direction: Vector3 = Vector3.ZERO
 var slide_timer: float = SLIDE_TIME_MAX
 var slide_vector: Vector2 = Vector2.ZERO
 var gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+## 若有效，每帧用其返回值作为水平移动的朝向基（第三人称：相机 yaw）
+var external_movement_basis_provider: Callable = Callable()
+## 若有效，在乘 basis 之前变换 WASD 向量（第一人称：沿用旧工程对 X/Y 双负约定；第三人称：原样）
+var remap_move_input: Callable = Callable()
 
 
 func setup(
@@ -54,8 +56,7 @@ func setup(
 	p_collision_stand: CollisionShape3D,
 	p_collision_crouch: CollisionShape3D,
 	p_head: Node3D,
-	p_animation_tree: AnimationTree,
-	p_player_mesh: Node3D
+	p_animation_tree: AnimationTree
 ) -> void:
 	character = p_character
 	input_controller = p_input_controller
@@ -64,7 +65,6 @@ func setup(
 	collision_crouch = p_collision_crouch
 	head = p_head
 	animation_tree = p_animation_tree
-	player_mesh = p_player_mesh
 
 
 func process(delta: float) -> void:
@@ -155,24 +155,36 @@ func _apply_gravity(delta: float) -> void:
 		character.velocity.y -= gravity * delta
 
 
+func _move_input_for_velocity(raw: Vector2) -> Vector2:
+	if remap_move_input.is_valid():
+		var out: Variant = remap_move_input.call(raw)
+		if out is Vector2:
+			return out as Vector2
+	return raw
+
+
 func _apply_velocity(input_dir: Vector2, delta: float) -> void:
-	var basis := character.transform.basis
-	var target_dir := (basis * Vector3(-input_dir.x, 0.0, -input_dir.y)).normalized()
+	var basis: Basis = character.transform.basis
+	if external_movement_basis_provider.is_valid():
+		var provided: Variant = external_movement_basis_provider.call()
+		if provided is Basis:
+			basis = provided as Basis
+	var mv := _move_input_for_velocity(input_dir)
+	# 标准：mv 与相机/身体 basis 组合后 W=朝前；FP 经 remap 回到本工程原先 (-x,-y) 手感
+	var target_dir := (basis * Vector3(mv.x, 0.0, mv.y)).normalized()
 	if character.is_on_floor():
 		direction = lerp(direction, target_dir, delta * speed_lerp)
 	elif input_dir != Vector2.ZERO:
 		direction = lerp(direction, target_dir, delta * air_lerp)
 
 	if current_state == PlayerState.SLIDING:
-		direction = (basis * Vector3(slide_vector.x, 0.0, slide_vector.y)).normalized()
+		var sv := _move_input_for_velocity(slide_vector)
+		direction = (basis * Vector3(sv.x, 0.0, sv.y)).normalized()
 		SPEED_Normal = slide_timer * SLIDE_SPEED
 
 	if direction.length_squared() > 0.01:
 		character.velocity.x = direction.x * SPEED_Normal
 		character.velocity.z = direction.z * SPEED_Normal
-		if current_state in [PlayerState.WALKING, PlayerState.SPRINTING] and player_mesh != null:
-			# 第三人称时由 Player 根据当前相机切换 look_at，此处仅第一人称不转 body
-			pass
 	else:
 		character.velocity.x = move_toward(character.velocity.x, 0.0, SPEED_Normal)
 		character.velocity.z = move_toward(character.velocity.z, 0.0, SPEED_Normal)

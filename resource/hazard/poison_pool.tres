@@ -4,6 +4,5 @@
 
 [resource]
 script = ExtResource("1_dc0fd")
-damage = 40.0
 tick_interval = 1.0
 metadata/_custom_type_script = "uid://chm0n0dfxu8gw"

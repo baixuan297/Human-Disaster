@@ -61,7 +61,7 @@ flowchart TB
 sequenceDiagram
     participant Source as 伤害来源
     participant Player as Player
-    participant Stats as playerStats
+    participant Stats as player_stats
     participant UI as PlayerUIController
     Source->>Player: apply_attack_data(attack)
     Player->>Player: player_hit.emit
@@ -107,7 +107,7 @@ sequenceDiagram
     participant AnimTree as AnimationTree
     participant MethodTrack as 攻击动画 Method Track
     participant Player as Player
-    participant Stats as playerStats
+    participant Stats as player_stats
     Enemy->>AnimTree: _anim_set "attack" true
     AnimTree->>MethodTrack: 命中帧调用 _hit_finished
     MethodTrack->>Enemy: _hit_finished
@@ -136,6 +136,7 @@ sequenceDiagram
 |------|----------|
 | 武器 | `AttackData.create_weapon_attack(weapon_data, attacker)` |
 | 技能 | `AttackData.create_skill_attack(skill_resource, level, caster)` |
+| 场景伤害 | `AttackData.create_hazard_attack(damage, hazard_node, hazard_type)` 或 `Hazard.create_attack_data(hazard_node)` |
 | 敌人近战 | 手动 `AttackData.new()`，设置 `base_damage`、`final_damage`、`body_part_multiplier` |
 | DOT/DEBUFF | 手动构造，`body_part_multiplier = 1.0` |
 
@@ -146,7 +147,9 @@ sequenceDiagram
 | 文件 | 职责 |
 |------|------|
 | `resource/stats/stats.gd` | Stats 资源：take_damage、heal、recalculate_stats、health_changed、died |
-| `resource/damageEvent/AttackData.gd` | 伤害数据：create_weapon_attack、create_skill_attack、apply_body_part_multiplier |
+| `resource/damageEvent/AttackData.gd` | 伤害数据：create_weapon_attack、create_skill_attack、create_hazard_attack、apply_body_part_multiplier |
+| `resource/hazard/hazard.gd` | Hazard 资源：hazard_type(FIRE/POISON/THORNS/OTHER)、create_attack_data |
+| `Script/poison_pool.gd` | 毒池场景伤害，必须注入 Hazard 资源（无则 push_warning） |
 | `Script/player/Player.gd` | apply_attack_data、_on_stats_health_changed、health_changed 中继 |
 | `Script/player/PlayerUIController.gd` | on_health_changed 更新血条 UI |
 | `Script/enemy/BaseEnemy.gd` | _on_area_3d_body_part_hit、_on_health_changed、_on_died |

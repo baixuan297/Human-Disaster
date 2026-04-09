@@ -24,6 +24,7 @@
 | [INVENTORY.md](INVENTORY.md) | 背包系统（xuanBag 插件、InventoryManager、InventoryUI） |
 | [SKILL_SYSTEM.md](SKILL_SYSTEM.md) | 技能系统（SkillManager、Skill、SkillResource、效果场景） |
 | [WEAPON_SYSTEM.md](WEAPON_SYSTEM.md) | 武器系统（WeaponManager、BaseWeapon、WeaponViewModel、Bullet） |
+| [PLAYER_CAMERA_AND_MOVEMENT.md](PLAYER_CAMERA_AND_MOVEMENT.md) | 第一/第三人称相机、移动 Callable、`PlayerViewPaths`、瞄准路径 |
 | [DAMAGE_SYSTEM.md](DAMAGE_SYSTEM.md) | 伤害系统（Stats、AttackData、角色/敌人受击流程） |
 | [GENE_SYSTEM.md](GENE_SYSTEM.md) | 基因模块（GeneData、CharacterGeneState、GeneManager、已集成） |
 
@@ -33,6 +34,7 @@
 
 | 文档 | 说明 |
 |------|------|
+| [PROJECT_ISSUES_AND_FIXES.md](PROJECT_ISSUES_AND_FIXES.md) | 工程问题台账、代码审计 §8、**后续 TODO §9**（与代码同步维护） |
 | [CHARACTER_AND_WEAPON_OVERVIEW.md](CHARACTER_AND_WEAPON_OVERVIEW.md) | 角色与武器系统理解摘要、教程系统 |
 | [CHARACTER_MENU.md](CHARACTER_MENU.md) | 角色菜单、属性面板、SYNC 等级与图标资源约定 |
 

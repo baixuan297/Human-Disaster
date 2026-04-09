@@ -63,7 +63,15 @@ AudioManager（autoload）   → 武器音效入口：play_weapon_shoot / play_d
 ```
 
 - **解耦要点**：场景引用（weapon_scene / viewmodel_scene）放在 **WorldWeapon** 上，不放在 WeaponData 中，避免 .tres → .tscn 循环依赖。
-- **Player** 与武器逻辑解耦：仅通过 `weapon_manager.request_*` / `switch_to_*` / `apply_sway` 等 API 与 `ammo_changed` 等信号交互。
+- **Player** 与武器逻辑解耦：仅通过 `weapon_manager.request_*` / `switch_to_*` / `apply_sway` 等 API 与 `ammo_changed` 等信号交互；**不再**向 `WeaponManager.setup()` 传入相机/射线（已移除），由 WeaponManager 在 `_ready` 自发现节点。
+- **WeaponManager 节点绑定（自发现）**：
+  - 挂在 **CharacterBody3D 根下**（如 `Weapon_manager`）；在 `_ready` 中解析 `FPCamera`（默认路径 `firstperson/nek/head/CameraRigFP/FPCamera`）用于 viewmodel 与 `is_current()` 判断。仍兼容旧版「挂在 FPCamera 下」。
+  - 沿父链向上找到 `CharacterBody3D` 作为玩家根；`world_root = player.get_parent()`（子弹父节点）。
+  - 第一人称瞄准：默认取 **FPCamera**（`CameraRigFP.tscn` 内唯一名）下子节点 `Aimray`、`aimrayend`。
+  - 第三人称瞄准：默认取玩家根下 `thirdperson/Yaw/Pitch/SpringArm3D/Camera3D/Aimray` 与 `aimrayend`（常量集中定义在 `Script/player/player_view_paths.gd` 的 `PlayerViewPaths`）。
+  - 若层级不同，在检视器 `Weapon_manager` 上设置 **weapon_bind_***（`weapon_bind_fp_*` 为相对 WeaponManager 的 `NodePath`，`weapon_bind_tp_*` 为相对玩家 `CharacterBody3D` 的 `NodePath`）。
+  - **禁止**将 `WeaponManager.gd` 加入 `project.godot` 的 autoload：autoload 父节点为根窗口，无法解析玩家与 FPCamera。
+- **其它可选架构**（未实现）：用 `SceneUniqueName`（`%Aimray`）或 **Groups**（如 `weapon_aim_fp`）在运行时 `get_tree().get_nodes_in_group`；多人时需每组仅一个节点或改为从玩家子树内搜索，避免串台。
 - **音效解耦**：WeaponData 可选 `audio_data: WeaponAudioData`；无该字段的武器不播声，WeaponManager 内 `_play_*` 做空判断后调 AudioManager。
 
 ## 2. 核心调用链
@@ -98,7 +106,7 @@ AudioManager（autoload）   → 武器音效入口：play_weapon_shoot / play_d
 
 | 文件 | 职责 |
 |------|------|
-| `autoload/WeaponManager.gd` | 槽位管理、装备/切换/射击/换弹、viewmodel 创建与同步、音效与空仓防抖 |
+| `autoload/WeaponManager.gd` | 槽位管理、装备/切换/射击/换弹、viewmodel 创建与同步、音效与空仓防抖（挂玩家根 `Weapon_manager`，勿 autoload） |
 | `Script/gun/Worldweapon.gd` | 场景可拾取武器，pickup 时把 data+场景交给 Manager |
 | `Script/gun/BaseWeapon.gd` | 射速门控、子弹实例化与初始化接口 |
 | `Script/gun/WeaponViewModel.gd` | 晃动、fire/reload/raise 动画、muzzle 世界坐标 |
@@ -106,8 +114,9 @@ AudioManager（autoload）   → 武器音效入口：play_weapon_shoot / play_d
 | `resource/gun/weapon_resource.gd` | WeaponData 资源定义（含可选 audio_data） |
 | `resource/damageEvent/AttackData.gd` | 伤害数据构造（create_weapon_attack） |
 | `autoload/AudioManager.gd` | 武器音效池入口（射击/空仓/换弹/装备） |
-| `test/WeaponAudioData.gd` | 武器音效数据结构（shoot_variations、dry_fire/reload/equip stream） |
-| `test/AudioPool.gd` | 3D 音效池，轮询复用 AudioStreamPlayer3D |
+| `resource/gun/WeaponAudioData.gd` | 武器音效数据结构（shoot_variations、dry_fire/reload/equip stream） |
+| `Script/gun/AudioPool.gd` | 3D 音效池，轮询复用 AudioStreamPlayer3D |
+| `Script/player/player_view_paths.gd` | `PlayerViewPaths`：第三人称相机与 TP 瞄准默认 `NodePath`（与默认 `weapon_bind_tp_*` 一致） |
 
 UI 与武器解耦：`Script/gun/playerAmmoUi.gd` 只监听 Player 的 `Update_Ammo`，由 Player 转发 `WeaponManager.ammo_changed`。
 

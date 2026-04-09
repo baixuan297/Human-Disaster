@@ -33,9 +33,10 @@ func _ready():
 	
 	setup_slots()
 	connect_signals()
+	_wire_bag_type_buttons()
 	
 	# 初始化显示武器背包
-	inventory_manager.switch_bag("Weapon")
+	inventory_manager.switch_bag(InventoryManager.BAG_WEAPON)
 	
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
@@ -59,36 +60,59 @@ func setup_slots():
 		slot.item_right_clicked.connect(_on_item_right_clicked)
 		slot.item_dropped.connect(_on_item_dropped)
 
-func connect_signals():
-	# 连接到背包管理器的信号
-	if inventory_manager:
-		inventory_manager.item_added.connect(_on_item_added)
-		inventory_manager.item_removed.connect(_on_item_removed)
+func connect_signals() -> void:
+	if not inventory_manager:
+		return
+	# inventory_changed 做完整 update_display，不再单独连 item_added/item_removed
+	# 旧代码 _on_item_added/_on_item_removed 用原始 slot_index 更新 UI 槽，
+	# 但 UI 展示的是按类型筛选后的列表，index 不对应，会导致刷错格子。
+	if not inventory_manager.inventory_changed.is_connected(_on_inventory_changed):
 		inventory_manager.inventory_changed.connect(_on_inventory_changed)
+	if not inventory_manager.bag_changed.is_connected(_on_bag_changed):
 		inventory_manager.bag_changed.connect(_on_bag_changed)
 
-func _on_inventory_changed():
+
+func _wire_bag_type_buttons() -> void:
+	var bc := get_node_or_null("Panel/Bottom/BagContainer")
+	if bc == null:
+		push_warning("[InventoryUI] 未找到 Panel/Bottom/BagContainer，底部分类按钮无法绑定")
+		return
+	_try_connect_pressed(bc, InventoryManager.BAG_WEAPON, _on_weapon_pressed)
+	_try_connect_pressed(bc, InventoryManager.BAG_POTION, _on_potion_pressed)
+	_try_connect_pressed(bc, InventoryManager.BAG_MATERIAL, _on_material_pressed)
+	_try_connect_pressed(bc, InventoryManager.BAG_FOOD, _on_food_pressed)
+	_try_connect_pressed(bc, InventoryManager.BAG_QUEST, _on_quest_pressed)
+	_try_connect_pressed(bc, InventoryManager.BAG_TOOL, _on_tool_pressed)
+
+
+func _try_connect_pressed(root: Node, child_name: String, handler: Callable) -> void:
+	var btn := root.get_node_or_null(child_name)
+	if btn is BaseButton:
+		if not btn.pressed.is_connected(handler):
+			btn.pressed.connect(handler)
+		btn.focus_mode = Control.FOCUS_NONE
+	else:
+		push_warning("[InventoryUI] 底栏缺少按钮: %s" % child_name)
+
+func _on_inventory_changed() -> void:
 	update_display()
 
-func _on_item_added(item: InventoryItem, slot_index: int):
-	if slot_index < item_slots.size():
-		#var actual_item = inventory_manager.get_item(slot_index)
-		item_slots[slot_index].set_item(item)
 
-func _on_item_removed(item: InventoryItem, slot_index: int):
-	if slot_index < item_slots.size():
-		#var actual_item = inventory_manager.get_item(slot_index)
-		item_slots[slot_index].set_item(item)
-
-func _on_bag_changed(bag_type: String):
-	# 更新标题
+func _on_bag_changed(bag_type: String) -> void:
 	bag_name.text = "Bag / %s" % bag_type
-	# 高亮当前选中的背包
 	_highlight_selected_bag(bag_type)
-	# 清空搜索框
+	_clear_search_bar_silently()
+	# 不再在这里调 update_display()——switch_bag 之后的 inventory_changed 会触发
+
+
+func _clear_search_bar_silently() -> void:
+	if text_edit == null:
+		return
+	if text_edit.text_changed.is_connected(_on_text_edit_text_changed):
+		text_edit.text_changed.disconnect(_on_text_edit_text_changed)
 	text_edit.text = ""
-	# 更新显示
-	update_display()
+	if not text_edit.text_changed.is_connected(_on_text_edit_text_changed):
+		text_edit.text_changed.connect(_on_text_edit_text_changed)
 
 func _on_item_clicked(slot: ItemSlot):
 	selected_slot_index = slot.slot_index
@@ -106,39 +130,47 @@ func _on_item_right_clicked(slot: ItemSlot):
 			# 使用物品
 			inventory_manager.use_item(actual_index)
 
-func _on_item_dropped(from_slot: ItemSlot, to_slot: ItemSlot):
-	# 获取显示列表
+func _on_item_dropped(from_slot: ItemSlot, to_slot: ItemSlot) -> void:
 	var display_items = inventory_manager.get_current_bag_items()
-	
-	# 获取实际的物品索引
-	if from_slot.slot_index < display_items.size() and to_slot.slot_index < display_items.size():
-		var from_item = display_items[from_slot.slot_index]
-		var to_item = display_items[to_slot.slot_index] if to_slot.slot_index < display_items.size() else null
-		
-		var actual_from = inventory_manager.find_item_index(from_item)
-		var actual_to = inventory_manager.find_item_index(to_item) if to_item else -1
-		
-		if actual_from >= 0 and actual_to >= 0:
-			inventory_manager.move_item(actual_from, actual_to)
+	if from_slot.slot_index >= display_items.size():
+		return
 
-# 背包类型按钮
-func _on_weapon_pressed():
-	inventory_manager.switch_bag("Weapon")
+	var from_item: InventoryItem = display_items[from_slot.slot_index]
+	var actual_from = inventory_manager.find_item_index(from_item)
+	if actual_from < 0:
+		return
 
-func _on_potion_pressed():
-	inventory_manager.switch_bag("Potion")
+	var actual_to := -1
+	if to_slot.slot_index < display_items.size():
+		var to_item: InventoryItem = display_items[to_slot.slot_index]
+		if to_item:
+			actual_to = inventory_manager.find_item_index(to_item)
 
-func _on_material_pressed():
-	inventory_manager.switch_bag("Material")
+	if actual_to < 0:
+		actual_to = inventory_manager.find_empty_slot()
+	if actual_to < 0:
+		return
 
-func _on_food_pressed():
-	inventory_manager.switch_bag("Food")
+	inventory_manager.move_item(actual_from, actual_to)
 
-func _on_quest_pressed():
-	inventory_manager.switch_bag("Quest")
+# 背包类型按钮（与 InventoryManager 常量一致，避免拼写漂移）
+func _on_weapon_pressed() -> void:
+	inventory_manager.switch_bag(InventoryManager.BAG_WEAPON)
 
-func _on_tool_pressed():
-	inventory_manager.switch_bag("Tool")
+func _on_potion_pressed() -> void:
+	inventory_manager.switch_bag(InventoryManager.BAG_POTION)
+
+func _on_material_pressed() -> void:
+	inventory_manager.switch_bag(InventoryManager.BAG_MATERIAL)
+
+func _on_food_pressed() -> void:
+	inventory_manager.switch_bag(InventoryManager.BAG_FOOD)
+
+func _on_quest_pressed() -> void:
+	inventory_manager.switch_bag(InventoryManager.BAG_QUEST)
+
+func _on_tool_pressed() -> void:
+	inventory_manager.switch_bag(InventoryManager.BAG_TOOL)
 
 # 搜索物品
 func _on_text_edit_text_changed():
@@ -189,12 +221,22 @@ func _on_cancel_pressed() -> void:
 	item_delete.queue_free()
 
 func _on_close_button_pressed():
-	visible = false
+	_cleanup()
 	PauseManager.close_inventory()
 	UiManager.close_current_ui()
 
+
+func _cleanup() -> void:
+	visible = false
+	ItemSlot.current_selected_slot = null
+
 func toggle_visibility():
 	visible = not visible
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		ItemSlot.current_selected_slot = null
+
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel") and visible:
@@ -213,13 +255,13 @@ func update_display():
 		if i < item_slots.size():
 			item_slots[i].set_item(display_items[i])
 
-func _update_item_info(item: InventoryItem):
-	if item:
+func _update_item_info(item: InventoryItem) -> void:
+	if item and item.data:
 		item_info.visible = true
 		var data = item.data
 		item_info_icon.texture = data.icon
 		item_info_name.text = data.name
-		var item_type_name = ItemData.ItemType.keys()[data.item_type]
+		var item_type_name: String = ItemData.ItemType.keys()[data.item_type]
 		item_info_type.text = item_type_name
 		item_info_desc.text = data.description
 		# 物品使用说明
@@ -228,18 +270,25 @@ func _update_item_info(item: InventoryItem):
 	else:
 		item_info.visible = false
 
-func _highlight_selected_bag(bag_type: String):
-	# 重置所有背包的选中颜色
-	for node in get_tree().get_nodes_in_group("bagSelectColor"):
-		if node is ColorRect:
-			node.color.a = 0.2
-	
-	# 高亮当前选中的背包
-	var node_path = "Panel/Bottom/BagContainer/%s/ColorRect" % bag_type
-	if has_node(node_path):
-		var rect = get_node(node_path) as ColorRect
-		if rect:
-			rect.color.a = 1.0
+func _highlight_selected_bag(bag_type: String) -> void:
+	var root := get_node_or_null("Panel/Bottom/BagContainer")
+	if root == null:
+		return
+	var names: Array[String] = [
+		InventoryManager.BAG_WEAPON,
+		InventoryManager.BAG_POTION,
+		InventoryManager.BAG_MATERIAL,
+		InventoryManager.BAG_FOOD,
+		InventoryManager.BAG_QUEST,
+		InventoryManager.BAG_TOOL,
+	]
+	for n in names:
+		var cr := root.get_node_or_null(n + "/ColorRect") as ColorRect
+		if cr:
+			cr.color.a = 0.2
+	var sel := root.get_node_or_null(bag_type + "/ColorRect") as ColorRect
+	if sel:
+		sel.color.a = 1.0
 
 func _get_displayed_item(slot_index: int) -> InventoryItem:
 	# 获取当前显示的物品
@@ -247,3 +296,7 @@ func _get_displayed_item(slot_index: int) -> InventoryItem:
 	if slot_index >= 0 and slot_index < display_items.size():
 		return display_items[slot_index]
 	return null
+
+
+func _on_button_pressed() -> void:
+	print("im worling")

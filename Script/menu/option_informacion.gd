@@ -6,7 +6,7 @@ extends Control
 signal Exit_Options_Menu
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta):
+func _process(_delta):
 	option_menu_input()
 	
 func change_tab(tab : int):

@@ -58,7 +58,7 @@ flowchart TB
 
 - **数据**：只存在于 `InventoryManager`（单例），槽位数组 `items: Array[InventoryItem]`，最大槽位数 `max_slots`（默认 60）。
 - **界面**：`InventoryUI` 只负责展示与操作，通过信号和 `InventoryManager` 的 API 读写数据，不持有备份。
-- **物品定义**：来自 JSON（见 `addons/xuanBag/data/`），由 `ItemDatabase` 加载，`InventoryManager` 在 `_ready` 中创建并持有 `ItemDatabase`。
+- **物品定义**：离线时由 `addons/xuanBag/data/*.json` 预载；联网后 **GameDataManager** 从 API 同步并覆盖/补充（与后端 `game_items` 表一致，源文件 `StarshipBackend/PSQL_DH/game_data/items.json`，`python seeder.py` 入库）。
 
 ---
 
@@ -152,15 +152,14 @@ flowchart TB
 **类名**：`ItemDatabase`
 
 - 在 `_ready` 中调用 `load_json_from_folder()`，扫描 `res://addons/xuanBag/data/` 下所有文件，对每个文件调用 `load_items_from_json(file_path)`。
-- JSON 格式：支持根节点为数组，或 `{ "items": [ ... ] }`。每个元素为字典，例如：
-  - `item_id`, `item_name`, `item_desc`, `item_icon`, `max_stack`, `item_type`, `rarity`。
+- JSON 格式：支持根节点为数组，或 `{ "items": [ ... ] }`（可含 `version` 等其它键，仅读取 `items`）。
+- **推荐字段**（与后端 / `game_data/items.json` 对齐）：`item_id`, `name`, `description`, `item_type`, `equip_slot`, `stackable`, `max_stack`, `rarity`, `icon_path`, `metadata`（对象）。仍兼容旧字段 `item_name` / `item_desc` / `item_icon`。
 - `create_item_data_from_dict(data_dict)` 将字典转成 `ItemData`，并统一用 `str(item_id)` 作为 key 存入 `items_data`。
 - 对外接口：`get_item_data(item_id: String)`、`get_item_data_by_id(item_id: int)`、`has_item`、`get_all_items`、`get_items_by_type` 等。
 
-物品数据文件示例路径：
+本地数据示例：
 
-- `addons/xuanBag/data/dh游戏_物品表单.json`
-- `addons/xuanBag/data/dh游戏_武器表单.json`
+- `addons/xuanBag/data/items_addon.json`：与仓库 `game_data/items.json` **v2.2.0** 同步的增量条目（含 M9、MP7、X-87、弹药、药水、实验室钥匙、门禁卡、星币、改名卡等）；完整物品表以后端 JSON + seeder 为准。
 
 ---
 
@@ -279,13 +278,9 @@ flowchart TB
 
 ### 9.1 添加物品（你项目中的用法）
 
-- **宝箱 / 交互**：在 `test/InteractionComponent.gd` 中，当玩家与“宝箱”类物体交互时，会调用一串 `InventoryManager.add_item_by_numeric_id(...)`，例如：
-  - 201、202、203（武器类）
-  - 251、252、253（弹药类）
-  - 101、102、103（门禁卡、星币、改名卡）
-  - 100（实验室钥匙）
-  等。数字 ID 与 `addons/xuanBag/data/` 下 JSON 中的 `item_id` 一致。
-- **示例脚本**：`addons/xuanBag/scripts/sample.gd` 中同样有通过 `inventory.add_item_by_numeric_id(...)` 批量添加的示例，并连接了 `item_used` 做使用反馈（如门禁卡、星币、钥匙等）。
+- **宝箱 / 交互**：在 `Script/player/InteractionComponent.gd` 中，玩家与 `chest` 分组物体交互时调用 `GameItemIds.grant_standard_test_bundle(InventoryManager)`，与 `items_addon.json` / `game_data/items.json` v2.2.0 一致（武器 M9/MP7/X-87、弹药、药水、工具、星币等）。**勿再使用**旧版数字 ID（201–253、100–103）。
+- **常量与扩展**：`addons/xuanBag/scripts/game_item_ids.gd`（`GameItemIds`）集中定义 `item_id`；新增测试掉落时请同步改 `items_addon.json`、后端 `items.json`、`GameItemIds` 与 `grant_standard_test_bundle()`。
+- **示例脚本**：`addons/xuanBag/scripts/sample.gd` 中测试按钮同样调用 `grant_standard_test_bundle`，并连接 `item_used`（材料 / 药水 / 工具等）。
 
 ### 9.2 打开 / 关闭背包
 
@@ -316,8 +311,8 @@ flowchart TB
 
 ### 11.1 新增物品
 
-1. 在 `addons/xuanBag/data/` 下 JSON 中增加一条，包含 `item_id`, `item_name`, `item_desc`, `item_icon`, `max_stack`, `item_type`, `rarity` 等。
-2. 若使用新 JSON 文件，需保证被 `ItemDatabase.load_json_from_folder()` 扫描到（当前是遍历该目录下所有文件）。
+1. 在 **`StarshipBackend/PSQL_DH/game_data/items.json`** 中按现有 `item_id` 分段规则追加条目（`version` 可递增），并执行 `python seeder.py` 更新 PostgreSQL。
+2. 将同一批条目同步到 **`addons/xuanBag/data/`**（如 `items_addon.json` 的 `items` 数组），便于离线或未拉取 API 时本地 `ItemDatabase` 仍能解析；字段与后端一致（`name`/`description`/`icon_path`/`metadata` 等）。
 3. 游戏里通过 `InventoryManager.add_item_by_numeric_id(item_id, quantity)` 或 `add_item_by_id(str_id, quantity)` 添加。
 
 ### 11.2 新增“使用”逻辑
@@ -352,6 +347,6 @@ flowchart TB
 | `autoload/PauseManager.gd` | open_inventory / close_inventory |
 | `autoload/UIManager.gd` | "Inventory" → "InventoryUI" |
 | `autoload/SceneManager.gd` | "InventoryUI" 场景路径 |
-| `test/InteractionComponent.gd` | 宝箱交互中 add_item_by_numeric_id 调用 |
+| `Script/player/InteractionComponent.gd` | 宝箱交互中 add_item_by_numeric_id 调用 |
 
 以上即项目中与 Inventory 相关的全部逻辑与用法说明；按本文可从数据、UI、到与游戏其它系统的衔接做修改与扩展。

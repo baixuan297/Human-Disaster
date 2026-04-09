@@ -43,7 +43,7 @@
 | 数据 | 来源 |
 |------|------|
 | 角色名、职业 | `UserManager.current_character_name`、`UserManager.current_character_class`、`GeneManager.character_class`；职业为空时默认 `Berserk Mutant`（FishMan 默认职业） |
-| 等级、经验、生命、攻防闪 | `Player.playerStats`（Stats） |
+| 等级、经验、生命、攻防闪 | `Player.player_stats`（Stats） |
 | 基因抽象值 | `GeneManager.gene_points` |
 | 职业图标 | `素材/image/CharacterMenu/AttrPanel/class/{character_class}.png` |
 
@@ -61,7 +61,7 @@
 
 ## 五、与其它系统的关系
 
-- **Stats**：`attributes_panel` 通过 `SkillManager.character.playerStats` 或 `CharacterDataManager.get_player().playerStats` 获取属性。
+- **Stats**：`attributes_panel` 通过 `SkillManager.character.player_stats` 或 `CharacterDataManager.get_player().player_stats` 获取属性。
 - **GeneManager**：监听 `genes_changed`，刷新抽象值与描述。
 - **UserManager**：读取当前角色名与职业。
 - **character_menu**：打开「属性」标签时调用 `attributes_panel.refresh_from_player()`。

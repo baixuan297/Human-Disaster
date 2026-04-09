@@ -65,7 +65,7 @@ func _sync_health_from_player() -> void:
 	var p := CharacterDataManager.get_player() if CharacterDataManager else null
 	if p == null:
 		return
-	var ps = p.get("playerStats")
+	var ps = p.get("player_stats")
 	if ps and ps.get("current_health") != null and ps.get("current_max_health") != null:
 		_apply_health_ui(float(ps.current_health), float(ps.current_max_health))
 

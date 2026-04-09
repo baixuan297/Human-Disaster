@@ -7,7 +7,7 @@ class_name World
 @onready var crosshair = $effects/crosshair
 @onready var crosshairhit = $effects/crosshairhit
 @onready var FPS = $UI/FPS
-@onready var interactray = $"FishMan/firstperson/nek/head/eyes/Camera3D/Interactable"
+@onready var interactray = $"FishMan/firstperson/nek/head/CameraRigFP/FPCamera/Interactable"
 @onready var spawns = $stage/spawns 
 @onready var navigation_region = $stage/NavigationRegion3D
 @onready var player: CharacterBody3D = $"FishMan"

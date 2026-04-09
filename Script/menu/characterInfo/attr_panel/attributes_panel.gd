@@ -1,6 +1,6 @@
 extends Control
 
-## 角色属性面板：绑定 Player.playerStats、UserManager、GeneManager
+## 角色属性面板：绑定 Player.player_stats、UserManager、GeneManager
 ## SYNC-1～SYNC-5：按等级区间表示同步层级；每 LEVELS_PER_SYNC_TIER 级为一个区间（到达区间末端可进行「突破」叙事）
 
 const CLASS_ICON_DIR := "res://素材/image/CharacterMenu/AttrPanel/class/"
@@ -11,8 +11,6 @@ const SYNC_ICON_DIR := "res://素材/image/CharacterMenu/AttrPanel/SYNC/"
 ## 每多少级进入下一档 SYNC（例如 1–5 级 SYNC-1，6–10 级 SYNC-2）
 const LEVELS_PER_SYNC_TIER := 5
 const SYNC_TIER_MAX := 5
-## 与经验条右侧「等级上限」展示一致（内容版本上限，可按项目调整）
-const DISPLAY_LEVEL_CAP := 30
 ## 抽象值进度条：基因点占满条所需点数（仅 UI 比例）
 const ABSTRACT_POINTS_VISUAL_MAX := 100
 
@@ -102,9 +100,9 @@ func _get_stats() -> Stats:
 	var p := _get_player()
 	if p == null:
 		return null
-	var s = p.get("playerStats")
-	if s is Stats:
-		return s
+	var stats_resource = p.get("player_stats")
+	if stats_resource is Stats:
+		return stats_resource
 	return null
 
 
@@ -185,17 +183,18 @@ func _load_class_icon(character_class: String) -> void:
 		push_warning("[AttributesPanel] 未找到职业图标: %s（期望路径 %s）" % [character_class, path])
 
 
-func _sync_tier_from_level(level: int) -> int:
-	return clampi(1 + (level - 1) / LEVELS_PER_SYNC_TIER, 1, SYNC_TIER_MAX)
+func _sync_tier_from_level(character_level: int) -> int:
+	@warning_ignore("integer_division")
+	return clampi(1 + (character_level - 1) / LEVELS_PER_SYNC_TIER, 1, SYNC_TIER_MAX)
 
 
-func _next_breakthrough_level(level: int) -> int:
-	return int(ceil(float(level) / float(LEVELS_PER_SYNC_TIER))) * LEVELS_PER_SYNC_TIER
+func _next_breakthrough_level(character_level: int) -> int:
+	return int(ceil(float(character_level) / float(LEVELS_PER_SYNC_TIER))) * LEVELS_PER_SYNC_TIER
 
 
 func _refresh_sync_ui(stats: Stats) -> void:
-	var lev := stats.level
-	var tier := _sync_tier_from_level(lev)
+	var character_level := stats.level
+	var tier := _sync_tier_from_level(character_level)
 	_sync_level_label.text = "SYNC-%d" % tier
 	_apply_sync_icon(tier)
 
@@ -228,29 +227,19 @@ func _apply_sync_icon(tier: int) -> void:
 		_sync_icon.texture = t
 
 
-func _exp_segment_bounds(level: int, base_exp: float) -> Vector2:
-	## 与 Stats.level 的 sqrt 公式一致：level = floor(max(1, sqrt(exp/base)+0.5))
-	if level <= 1:
-		return Vector2(0.0, pow(1.5, 2.0) * base_exp)
-	var lo := pow(float(level) - 0.5, 2.0) * base_exp
-	var hi := pow(float(level) + 0.5, 2.0) * base_exp
-	return Vector2(lo, hi)
-
-
 func _refresh_exp_and_health(stats: Stats) -> void:
-	var lev := stats.level
-	_current_level.text = str(lev)
-	_level_cap_label.text = str(DISPLAY_LEVEL_CAP)
-	var base := stats.base_exp_to_next_level
-	var seg := _exp_segment_bounds(lev, base)
-	var lo := seg.x
-	var hi := seg.y
-	var experience := stats.experience
-	var span := maxf(hi - lo, 1.0)
-	var t := clampf((experience - lo) / span, 0.0, 1.0)
+	var character_level := stats.level
+	_current_level.text = str(character_level)
+	_level_cap_label.text = str(stats.max_level) if stats.max_level > 0 else "∞"
+	var experience_segment := stats.get_level_experience_segment()
+	var segment_lower := experience_segment.x
+	var segment_upper := experience_segment.y
+	var total_experience := stats.experience
+	var segment_width := maxf(segment_upper - segment_lower, 1.0)
+	var experience_fill_ratio := clampf((total_experience - segment_lower) / segment_width, 0.0, 1.0)
 	_exp_progress.max_value = 100.0
-	_exp_progress.value = t * 100.0
-	_current_exp.text = "%d / %d" % [int(floor(experience)), int(floor(hi))]
+	_exp_progress.value = experience_fill_ratio * 100.0
+	_current_exp.text = "%d / %d" % [int(floor(total_experience)), int(floor(segment_upper))]
 
 
 ## 生命 + 攻防闪：全部使用 Stats 上「当前结算后的」数值（含等级曲线、基因、Buff）
@@ -267,10 +256,10 @@ func _refresh_abstract_and_desc(stats: Stats) -> void:
 	_abstract_value_label.text = str(points)
 	_abstract_progress.max_value = 100.0
 	_abstract_progress.value = clampf(float(points) / float(ABSTRACT_POINTS_VISUAL_MAX), 0.0, 1.0) * 100.0
-	var lev := stats.level
-	var tier := _sync_tier_from_level(lev)
-	var next_brk := _next_breakthrough_level(lev)
-	if lev > 0 and lev % LEVELS_PER_SYNC_TIER == 0:
+	var character_level := stats.level
+	var tier := _sync_tier_from_level(character_level)
+	var next_brk := _next_breakthrough_level(character_level)
+	if character_level > 0 and character_level % LEVELS_PER_SYNC_TIER == 0:
 		_desc.text = "已到达 SYNC-%d 阶段边界。可进行同步突破以稳固意识链接，并解锁更高同步层级。" % tier
 		_upgrade_btn.disabled = false
 		_upgrade_btn.text = "突破"

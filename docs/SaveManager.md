@@ -17,8 +17,8 @@ SaveManager 是负责**设置存档**的全局单例（autoload）。**游戏存
 
 ## 二、设置存档（当前实现）
 
-- **写入**：监听 `SettingSignal.set_setting_dictionary`，收到后使用 `FileAccess.open_encrypted_with_pass(SETTINGS_SAVE_PATH, WRITE, "Desahuman")` 将字典 JSON 后写入。
-- **读取**：`load_settings_data()` 在 `_ready` 中调用，若存在设置文件则解密读取并 `SettingSignal.emit_load_setting_data(loaded_data)`，由 SettingData 等订阅并应用（窗口模式、分辨率、音量、热键等）。
+- **写入**：监听 `SettingSignal.set_setting_dictionary`，收到后使用 `FileAccess.open_encrypted_with_pass`（密钥与脚本内 `SETTINGS_ENCRYPTION_KEY` 一致，当前为 `"Desahuman"`）将字典 `JSON.stringify` 后单行写入。
+- **读取**：`load_settings_data()` 在 `_ready` 中调用；解密后读取全文，`JSON.parse` 成功且根为 `Dictionary` 时 `SettingSignal.emit_load_setting_data`。读写失败会 `push_error` / `push_warning`，不会抛异常。
 
 ---
 

@@ -10,7 +10,7 @@ APIManager 是项目中用于与后端 HTTP API 通信的全局单例（autoload
 |----|------|
 | **脚本路径** | `autoload/APIManager.gd` |
 | **Autoload 名称** | `ApiManager`（见 `project.godot`） |
-| **API 根地址** | `API_BASE_URL = "http://192.168.1.100:8000"`（常量，部署时需修改，见 `docs/TODO.md`） |
+| **API 根地址** | `API_BASE_URL = "http://127.0.0.1:8000"`（NAT 端口转发宿主机→虚拟机 8000；桥接时改为虚拟机 IP，见仓库 `docs/NETWORK_DEPLOYMENT.md`） |
 | **请求超时** | `timeout_sec = 25.0` 秒 |
 | **认证方式** | 请求头 `Authorization: Bearer <jwt_token>`，登录成功后自动保存 `jwt_token` |
 
@@ -60,7 +60,7 @@ flowchart TB
 func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: Dictionary = {}, callback: Callable = Callable()) -> void
 ```
 
-- **endpoint**：相对路径，会拼在 `API_BASE_URL` 后（如 `"/login"` → `http://192.168.1.100:8000/login`）。
+- **endpoint**：相对路径，会拼在 `API_BASE_URL` 后（如 `"/login"` → `http://127.0.0.1:8000/login`）。
 - **method**：`HTTPClient.METHOD_GET` / `METHOD_POST` / `METHOD_PUT` / `METHOD_DELETE` 等。
 - **data**：请求体字典，非 GET 且非空时会用 `JSON.stringify(data)` 发送，请求头为 `Content-Type: application/json`。
 - **callback**：请求完成时调用 `callback.call(success: bool, response_data)`。  
@@ -103,8 +103,8 @@ func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: D
 | `save_stats(character_id, stats_dict, callback)` | `/characters/{id}/stats` | POST | 保存角色属性（含 `experience`、`loadout`、`scene_state` 等与后端 `CharacterStatsSaveRequest` 对齐的字段；`Stats.save_to_dict()` 已包含 `experience`） |
 | `load_genes(character_id, callback)` | `/characters/{id}/genes` | GET | 加载角色基因 |
 | `save_genes(character_id, genes_list, callback)` | `/characters/{id}/genes` | POST | 保存角色基因（全量） |
-| `save_scene_state(character_id, data, callback)` | `/characters/{id}/scene_state` | POST | 保存场景状态（scene_path, position, rotation_y） |
-| `load_scene_state(character_id, callback)` | `/characters/{id}/scene_state` | GET | 加载场景状态 |
+| `save_scene_state(character_id, data, callback)` | `/characters/{id}/scene_state` | POST | 保存场景状态（`scene_path`, `position`, `rotation_y`；可选 `collected_pickables`，与 `SceneStateSaveRequest` 一致） |
+| `load_scene_state(character_id, callback)` | `/characters/{id}/scene_state` | GET | 加载场景状态（响应含 `collected_pickables` 数组，字符串 ID） |
 | `unlock_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/unlock` | POST | 解锁基因 |
 | `upgrade_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/upgrade` | POST | 升级基因 |
 | `toggle_gene(character_id, gene_id, is_active, callback)` | `/characters/{id}/genes/toggle` | POST | 激活/停用基因 |

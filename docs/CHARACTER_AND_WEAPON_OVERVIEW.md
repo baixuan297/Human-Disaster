@@ -10,7 +10,7 @@
 flowchart TB
     subgraph player [Player]
         PlayerNode[CharacterBody3D]
-        PlayerStats[playerStats: Stats]
+        PlayerStats[player_stats: Stats]
         WeaponMgrRef[weapon_manager]
     end
     subgraph autoload [Autoload 单例]
@@ -42,24 +42,27 @@ flowchart TB
 
 | 项目 | 说明 |
 |------|------|
-| **场景** | `Scene/Player/protagonist_fish_man.tscn`，根节点为 `CharacterBody3D`，分组 `Player` |
-| **脚本** | `Script/Player.gd`，挂载在根节点上 |
-| **属性资源** | `@export var playerStats: Stats`（如 `resource/stats/player_stats.tres`），用于最大生命、等级、防御等 |
+| **场景** | `Scene/Player/Fish_Man.tscn`，根节点 `FishMan`（`CharacterBody3D`，分组 `Player`） |
+| **脚本** | `Script/player/Player.gd`，挂载在根节点上 |
+| **属性资源** | `@export var player_stats: Stats`（如 `resource/stats/player_stats.tres`），用于最大生命、等级、防御等 |
 
 ### 1.2 节点结构概览
 
-- **firstperson**：第一人称链 `nek → head → eyes → Camera3D`
-  - 下有 **Aimray**（RayCast3D）、**Interactable**（RayCast3D，检测可交互物）、**Weapon_manager**（Node3D，挂载 WeaponManager 单例脚本）
+- **firstperson**：第一人称链 `nek → head → CameraRigFP（子场景）→ FPCamera（Camera3D）`
+  - 下有 **Aimray**（RayCast3D）、**Interactable**（RayCast3D，检测可交互物；`interactray.gd` 会自解析玩家以 `add_exception`）
+  - **Weapon_manager**：在 **玩家根**（与 `firstperson` 同级）下挂载 `WeaponManager.gd`，由脚本绑定 `CameraRigFP/FPCamera`（勿作 autoload）
   - 交互提示用 `Interactable/promt`（Label）显示
-- **thirdperson**：第三人称 Camera3D + Aimray
+- **thirdperson**：`ThirdPersonCameraRig.tscn` 实例，`Yaw/Pitch/SpringArm3D/Camera3D` + `Aimray`（路径常量见 `PlayerViewPaths`）
+- **CameraController / MovementComponent / InputController**：与 `firstperson` 同级子节点，由 `Player` 在 `_setup_components` 中初始化
 - **fishman**：角色模型（Armature、AnimationTree 等）
 - **UI**：血条、弹药栏、准心、技能栏等
 
 ### 1.3 移动与状态
 
-- **状态机**：`PlayerState` 枚举（IDLE / WALKING / SPRINTING / CROUCHING / SLIDING / IN_AIR），替代原先多布尔，保证互斥。
-- **输入**：WASD、Run、crouch、jump、free_look；速度常量 `SPEED_WALK / RUN / CROUCH`，滑铲有独立计时与方向。
-- **教程限制**：`TutorialManager.is_action_allowed()` 与 `_get_tutorial_aware_move_input()` 在教程场景下限制可用操作（仅移动 → 蹲跳 → 全解锁）。
+- **状态机**：`MovementComponent.PlayerState`（IDLE / WALKING / SPRINTING / CROUCHING / SLIDING / IN_AIR），逻辑在 `MovementComponent.gd`。
+- **输入**：`InputController` 提供 `get_move_input()` 等；WASD、Run、crouch、jump、free_look；速度常量在 MovementComponent。
+- **教程限制**：`TutorialManager.is_action_allowed()` 等在输入层限制可用操作。
+- **相机相对移动**：第三人称时 `MovementComponent` 使用 `Player` 注入的 `external_movement_basis_provider`（相机水平 Basis）；第一人称用角色 `transform.basis`。WASD 轴向通过 `remap_move_input` 在 FP/TP 间区分（见 `docs/PLAYER_CAMERA_AND_MOVEMENT.md`）。
 
 ### 1.4 生命与属性
 
@@ -75,7 +78,7 @@ flowchart TB
 ### 1.6 交互系统
 
 - **Interactable**：基类 `Script/interact.gd`（class_name Interactable），提供 `get_prompt()`（显示按键与名称）。
-- **检测**：第一人称下的 RayCast3D（Interactable）检测碰撞；Player 在 `_handle_interaction()` 中根据 `interactable_ray.get_collider()` 判断：
+- **检测**：第一人称下的 RayCast3D（Interactable）检测碰撞；`InteractionComponent`（由 `Player` 初始化）根据 `interactable_ray.get_collider()` 等判断：
   - **weapon_pickup** 且为 **WorldWeapon** → `collider.pickup(weapon_manager)`
   - **ammo_apply_point** → `weapon_manager.apply_ammo_supply()`
   - **machine** → 回血
@@ -98,11 +101,11 @@ flowchart TB
 
 | 类/资源 | 文件 | 职责 |
 |--------|------|------|
-| **WeaponManager** | `autoload/WeaponManager.gd` | 单例；挂于 Camera3D 下（如 `firstperson/.../Camera3D/Weapon_manager`）。槽位管理、装备/切换/射击/换弹、创建 SubViewport+WeaponViewModel、每帧同步 viewmodel 旋转到主相机。 |
+| **WeaponManager** | `autoload/WeaponManager.gd`（仅作路径；**非** autoload） | 挂于 **玩家根** `Weapon_manager`；解析 `FPCamera` 与一/三摄瞄准。槽位、装备/射击/换弹、SubViewport+WeaponViewModel、每帧同步 viewmodel 到 FPCamera。 |
 | **WeaponData** | `resource/gun/weapon_resource.gd` | 资源类。武器名、槽位类型(PRIMARY/SECONDARY)、弹药(Current/Reserve/magazine/Max)、伤害/暴击/射速/reload_time、projectile_scene、Auto_Fire 等。含 `can_reload()`、`do_reload()`、`calculate_damage()`。 |
 | **WorldWeapon** | `Script/gun/Worldweapon.gd` | RigidBody3D，分组 `weapon_pickup`。持有 `weapon_data`、`weapon_scene`、`viewmodel_scene`、可选 `model_scene`。`pickup(weapon_manager)` 时 `equip_weapon(data.duplicate(), ...)` 后 `queue_free()`。 |
-| **BaseWeapon** | `test/BaseWeapon.gd` | Node3D。由 WeaponManager 在装备时 `instantiate()` 并 `setup(data, player, world_root)`。只做射速门控与子弹生成：`attack(muzzle, target)` → `_fire_projectile()`，实例化 `data.projectile_scene`，调用 `init_with_data(target, data, shooter)` 或 `set_velocity(target)`。 |
-| **WeaponViewModel** | `test/WeaponViewModel.gd` | 第一人称视图模型基类。契约：子场景需有 `rig`、`rig/gun/AnimationPlayer`（fire/reload/raise）、Muzzle 等。提供 sway、play_fire/play_reload/play_raise/play_lower、is_reloading/is_firing、get_muzzle_global_position()。 |
+| **BaseWeapon** | `Script/gun/BaseWeapon.gd` | Node3D。由 WeaponManager 在装备时 `instantiate()` 并 `setup(data, player, world_root)`。只做射速门控与子弹生成：`attack(muzzle, target)` → `_fire_projectile()`，实例化 `data.projectile_scene`，调用 `init_with_data(target, data, shooter)` 或 `set_velocity(target)`。 |
+| **WeaponViewModel** | `Script/gun/WeaponViewModel.gd` | 第一人称视图模型基类。契约：子场景需有 `rig`、`rig/gun/AnimationPlayer`（fire/reload/raise）、Muzzle 等。提供 sway、play_fire/play_reload/play_raise/play_lower、is_reloading/is_firing、get_muzzle_global_position()。 |
 | **Bullet** | `Script/gun/Bullet.gd` | 子弹实体（半自动用）。`_process` 中沿朝向飞行，RayCast3D 碰撞；命中时用 `AttackData.create_weapon_attack()` + `calculate_damage()` 调用敌人 `enemy_hit(attack)`，或对 moveObject 施加冲量。 |
 | **AttackData** | `resource/damageEvent/AttackData.gd` | 伤害数据。`create_weapon_attack(weapon_data, attacker)`、`create_skill_attack(...)`；含 base_damage、final_damage、body_part_multiplier；敌人用 Stats.take_damage(attack) 等消费。 |
 
@@ -120,7 +123,7 @@ flowchart TB
 
 ### 2.5 其他相关文件
 
-- **view_model.gd**（`Script/gun/view_model.gd`）：当前为 Camera3D 的简单晃动实现；若场景根需作为 WeaponManager 识别的 viewmodel，应继承或替换为 `test/WeaponViewModel.gd` 的契约（rig、动画名、get_muzzle_global_position 等）。
+- **view_model.gd**（`Script/gun/view_model.gd`）：**遗留脚本**，与 `WeaponViewModel.gd` 功能重复；`Scene/gunshoot/view_model.tscn` 等已挂 `WeaponViewModel.gd`。新武器与文档均以 `Script/gun/WeaponViewModel.gd` 为准；该文件可考虑删除（见 `PROJECT_ISSUES_AND_FIXES.md` §8.1）。
 - **bullettrail.gd**：弹道轨迹/粒子表现（MeshInstance3D + 粒子），由具体弹道场景使用。
 - **playerAmmoUi.gd**：仅监听 Player 的 `Update_Ammo` 信号，与 WeaponManager 解耦。
 

@@ -29,10 +29,25 @@ const API_SAVE_COOLDOWN := 10.0
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
+	if not data_error.is_connected(_on_data_error_notify_user):
+		data_error.connect(_on_data_error_notify_user)
 	get_tree().auto_accept_quit = false
 	var win := get_window()
 	if win.close_requested.connect(_on_main_window_close_requested) != OK:
 		push_warning("[CharacterDataManager] 无法连接 close_requested，关窗时可能不会自动存档")
+
+
+## 存档 API 失败时：控制台记录 + 全局 Toast（GBMssage），避免仅 push_warning 不可见
+func _on_data_error_notify_user(reason: String) -> void:
+	if reason.is_empty():
+		return
+	push_warning("[CharacterDataManager] " + reason)
+	call_deferred("_deferred_show_save_error_toast", reason)
+
+
+func _deferred_show_save_error_toast(reason: String) -> void:
+	if is_instance_valid(GBMssage) and GBMssage.has_method("show_message"):
+		GBMssage.show_message(reason, "error")
 
 
 func _on_main_window_close_requested() -> void:
@@ -124,7 +139,7 @@ func restore_to_player(player: Node) -> void:
 	SkillManager.character = player
 
 	if not _stats_snapshot.is_empty():
-		var stats = player.get("playerStats")
+		var stats = player.get("player_stats")
 		if stats and stats.has_method("load_from_dict"):
 			var w_loadout: Variant = _stats_snapshot.get("loadout", {})
 			stats.load_from_dict(_stats_snapshot)
@@ -238,7 +253,7 @@ func _apply_stats_to_player(stats_dict: Dictionary) -> void:
 	var player := get_player()
 	if not player:
 		return
-	var stats = player.get("playerStats")
+	var stats = player.get("player_stats")
 	if stats and stats.has_method("load_from_dict"):
 		var w_loadout: Variant = stats_dict.get("loadout", {})
 		stats.load_from_dict(stats_dict)
@@ -250,7 +265,7 @@ func _restore_stats_from_api(player: Node) -> void:
 	ApiManager.load_stats(cid, func(success, resp):
 		if success and resp is Dictionary:
 			_stats_snapshot = resp
-			var stats = player.get("playerStats")
+			var stats = player.get("player_stats")
 			if stats and stats.has_method("load_from_dict"):
 				var w_loadout: Variant = resp.get("loadout", {})
 				stats.load_from_dict(resp)
@@ -306,7 +321,7 @@ func _restore_scene_state_from_api(player: Node) -> void:
 func _take_snapshot() -> void:
 	var player := get_player()
 	if player:
-		var stats = player.get("playerStats")
+		var stats = player.get("player_stats")
 		if stats and stats.has_method("save_to_dict"):
 			_stats_snapshot = stats.save_to_dict()
 			var wm = player.get("weapon_manager")
@@ -419,5 +434,6 @@ func save_to_api(callback: Callable = Callable(), force: bool = false) -> void:
 				callback_invoked[0] = true
 				pending[0] = 0
 				character_data_save_completed.emit()
+				data_error.emit("云端存档超时，请检查网络、API_BASE_URL 或后端是否运行")
 				cb.call(false, null)
 		, CONNECT_ONE_SHOT)

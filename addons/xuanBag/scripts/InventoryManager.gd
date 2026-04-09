@@ -10,6 +10,8 @@ signal bag_changed(bag_type: String)
 @onready var item_database: ItemDatabase
 
 var items: Array[InventoryItem] = []
+## 最近一次从 API/存档恢复的原始槽列表，供静态物品表晚于背包响应时二次解析
+var _last_inventory_serializable: Array = []
 var current_bag_type: String = "WEAPON"
 var current_filter_name: String = ""
 var current_sort_mode: SortMode = SortMode.NONE
@@ -30,11 +32,13 @@ func _ready():
 	items.resize(max_slots)
 
 func add_item(item_data: ItemData, quantity: int = 1) -> bool:
+	if not item_data:
+		return false
 	var remaining_quantity = quantity
 	
 	# 首先尝试堆叠到已有物品
 	for i in range(max_slots):
-		if items[i] and items[i].data.id == item_data.id:
+		if items[i] and items[i].data and items[i].data.id == item_data.id:
 			var available_space = item_data.max_stack - items[i].quantity
 			if available_space > 0:
 				var amount_to_add = min(available_space, remaining_quantity)
@@ -120,15 +124,17 @@ func move_item(from_slot: int, to_slot: int) -> bool:
 		inventory_changed.emit()
 		return true
 	
-	# 如果可以堆叠
-	if from_item.can_stack_with(to_item):
-		var remaining = from_item.stack_with(to_item)
-		if remaining <= 0:
-			items[from_slot] = null
-		else:
-			from_item.quantity = remaining
-		inventory_changed.emit()
-		return true
+	# 如果可以堆叠（把 from 合入 to）
+	if to_item.data and from_item.data and to_item.data.id == from_item.data.id:
+		var space = to_item.data.max_stack - to_item.quantity
+		if space > 0:
+			var transfer := mini(space, from_item.quantity)
+			to_item.quantity += transfer
+			from_item.quantity -= transfer
+			if from_item.quantity <= 0:
+				items[from_slot] = null
+			inventory_changed.emit()
+			return true
 	
 	# 交换位置
 	items[from_slot] = to_item
@@ -145,7 +151,7 @@ func find_empty_slot() -> int:
 func has_item(item_id: String, quantity: int = 1) -> bool:
 	var total_quantity = 0
 	for item in items:
-		if item and item.data.id == item_id:
+		if item and item.data and item.data.id == item_id:
 			total_quantity += item.quantity
 			if total_quantity >= quantity:
 				return true
@@ -153,7 +159,7 @@ func has_item(item_id: String, quantity: int = 1) -> bool:
 
 func use_item(slot_index: int) -> bool:
 	var item = get_item(slot_index)
-	if not item:
+	if not item or not item.data:
 		return false
 	
 	item_used.emit(item)
@@ -186,7 +192,7 @@ func get_all_items() -> Array[InventoryItem]:
 func get_items_of_rarity(item_rarity: ItemData.ItemRarity) -> Array[InventoryItem]:
 	var result: Array[InventoryItem] = []
 	for item in items:
-		if item and item.data.rarity == item_rarity:
+		if item and item.data and item.data.rarity == item_rarity:
 			result.append(item)
 	return result
 
@@ -194,7 +200,7 @@ func get_items_of_rarity(item_rarity: ItemData.ItemRarity) -> Array[InventoryIte
 func get_items_of_type(item_type: ItemData.ItemType) -> Array[InventoryItem]:
 	var result: Array[InventoryItem] = []
 	for item in items:
-		if item and item.data.item_type == item_type:
+		if item and item.data and item.data.item_type == item_type:
 			result.append(item)
 	return result
 
@@ -205,7 +211,7 @@ func get_items_by_name(item_name: String) -> Array[InventoryItem]:
 		return get_items_of_type(_get_item_type_from_string(current_bag_type))
 	
 	for item in items:
-		if item and (item.data.name == item_name or item.data.name.contains(item_name)):
+		if item and item.data and (item.data.name == item_name or item.data.name.contains(item_name)):
 			result.append(item)
 	return result
 
@@ -228,12 +234,42 @@ func get_current_bag_items() -> Array[InventoryItem]:
 	
 	return result
 
-# 切换背包类型
-func switch_bag(bag_type: String):
-	current_bag_type = bag_type.to_upper()
-	# 切换背包时清空搜索
-	current_filter_name = "" 
-	bag_changed.emit(bag_type)
+## UI 分类键（与 Inventory.tscn 下 BagContainer 子节点名一致：Weapon / Potion / …）
+const BAG_WEAPON := "Weapon"
+const BAG_POTION := "Potion"
+const BAG_MATERIAL := "Material"
+const BAG_FOOD := "Food"
+const BAG_QUEST := "Quest"
+const BAG_TOOL := "Tool"
+
+
+func _normalize_bag_type_key(bag_type: String) -> String:
+	var t := bag_type.strip_edges().to_upper()
+	match t:
+		"WEAPON", "POTION", "MATERIAL", "FOOD", "QUEST", "TOOL":
+			return t
+		_:
+			push_warning("[InventoryManager] 未知背包分类: %s，回退 WEAPON" % bag_type)
+			return "WEAPON"
+
+
+func _bag_ui_node_name(upper: String) -> String:
+	match upper:
+		"WEAPON": return BAG_WEAPON
+		"POTION": return BAG_POTION
+		"MATERIAL": return BAG_MATERIAL
+		"FOOD": return BAG_FOOD
+		"QUEST": return BAG_QUEST
+		"TOOL": return BAG_TOOL
+		_: return BAG_WEAPON
+
+
+# 切换背包类型（会清空搜索并按类型筛选）
+func switch_bag(bag_type: String) -> void:
+	var upper := _normalize_bag_type_key(bag_type)
+	current_bag_type = upper
+	current_filter_name = ""
+	bag_changed.emit(_bag_ui_node_name(upper))
 	inventory_changed.emit()
 
 # 设置名称过滤
@@ -285,13 +321,13 @@ func _apply_sorting(items_list: Array[InventoryItem]) -> Array[InventoryItem]:
 	return sorted_list
 
 func _compare_items_by_name(a: InventoryItem, b: InventoryItem) -> bool:
-	if a == null or b == null:
+	if a == null or b == null or not a.data or not b.data:
 		return false
 	
 	return a.data.name < b.data.name
 	
 func _compare_items_by_rarity(a: InventoryItem, b: InventoryItem) -> bool:
-	if a == null or b == null:
+	if a == null or b == null or not a.data or not b.data:
 		return false
 	
 	# 如果稀有度相同按照名字排序
@@ -315,7 +351,7 @@ func get_serializable_inventory() -> Array:
 	var result: Array = []
 	result.resize(max_slots)
 	for i in range(max_slots):
-		if items[i]:
+		if items[i] and items[i].data:
 			var id_val = items[i].data.id
 			var id_int := int(id_val) if str(id_val).is_valid_int() else 0
 			result[i] = { "id": id_int, "qty": items[i].quantity }
@@ -325,18 +361,73 @@ func get_serializable_inventory() -> Array:
 
 ## 存档用：从序列化数据恢复背包（会清空当前背包再按槽位恢复）
 func load_serializable_inventory(data: Array) -> void:
-	clear()
-	var n = mini(data.size(), max_slots)
+	if data != null:
+		_last_inventory_serializable = data.duplicate(true)
+	else:
+		_last_inventory_serializable.clear()
+	_apply_serializable_inventory(_last_inventory_serializable)
+
+
+func _coerce_slot_item_id(id_val: Variant) -> int:
+	if id_val == null:
+		return 0
+	match typeof(id_val):
+		TYPE_INT:
+			return id_val
+		TYPE_FLOAT:
+			return int(id_val)
+		_:
+			var s := str(id_val)
+			if s.is_valid_int():
+				return int(s)
+			if s.is_valid_float():
+				return int(float(s))
+			return 0
+
+
+func _resolve_item_data_for_slot(id_val: Variant) -> ItemData:
+	var id_num := _coerce_slot_item_id(id_val)
+	if id_num <= 0:
+		return null
+	var id_str := str(id_num)
+	var item_data := item_database.get_item_data(id_str)
+	if not item_data and GameDataManager.is_loaded():
+		item_data = GameDataManager.get_item_data(id_num)
+	return item_data
+
+
+func _apply_serializable_inventory(data: Array) -> void:
+	items.clear()
+	items.resize(max_slots)
+	var n := mini(data.size(), max_slots)
 	for i in range(n):
 		var entry = data[i]
 		if entry != null and typeof(entry) == TYPE_DICTIONARY:
 			var id_val = entry.get("id", "")
-			var qty = int(entry.get("qty", 1))
-			var id_str := str(id_val) if id_val != null and id_val != "" else ""
-			if id_str != "":
-				var item_data = item_database.get_item_data(id_str)
-				if not item_data and GameDataManager.is_loaded():
-					item_data = GameDataManager.get_item_data(int(id_val))
+			var qty := int(entry.get("qty", 1))
+			if id_val != null and str(id_val) != "":
+				var item_data := _resolve_item_data_for_slot(id_val)
 				if item_data:
 					items[i] = InventoryItem.new(item_data, qty)
+	inventory_changed.emit()
+
+
+## ItemDatabase 从 GameDataManager 同步完成后调用：补全此前无法解析的槽位，或刷新已有槽位的 ItemData
+func reapply_last_serializable_inventory() -> void:
+	if not _last_inventory_serializable.is_empty():
+		_apply_serializable_inventory(_last_inventory_serializable)
+	else:
+		_refresh_item_data_references()
+
+
+func _refresh_item_data_references() -> void:
+	for i in range(max_slots):
+		if items[i] == null or not items[i].data:
+			continue
+		var id_num := _coerce_slot_item_id(items[i].data.id)
+		if id_num <= 0:
+			continue
+		var fresh := _resolve_item_data_for_slot(id_num)
+		if fresh:
+			items[i] = InventoryItem.new(fresh, items[i].quantity)
 	inventory_changed.emit()

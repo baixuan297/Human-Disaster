@@ -39,9 +39,8 @@ GBMssage="*res://autoload/GlobalMessage/GlobalMessage.tscn"
 TutorialManager="*res://autoload/TutorialManager.gd"
 AudioManager="*res://autoload/AudioManager.gd"
 SkillManager="*res://autoload/SkillManager.gd"
-WeaponManager="res://autoload/WeaponManager.gd"
-SignalBus="res://autoload/SignalBus.gd"
 ScreenEffect="*res://autoload/Screen_Effect/screen_effect.tscn"
+SignalBus="res://autoload/SignalBus.gd"
 
 [dialogic]
 

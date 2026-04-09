@@ -55,3 +55,7 @@ func _on_exit_button_pressed() -> void:
 	print("closing...")
 	pauseManager.close_characterInfo()
 	uiManager.close_current_ui()
+
+
+func _on_gene_button_pressed() -> void:
+	pass # Replace with function body.

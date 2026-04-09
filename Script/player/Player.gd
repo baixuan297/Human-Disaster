@@ -10,6 +10,7 @@ extends CharacterBody3D
 ##   WeaponManager 在自身 _ready 中自绑定相机与瞄准射线，Player 无需 setup 传参。
 ##
 ## 【移动/相机/交互】已移交 MovementComponent、CameraController、InteractionComponent。
+## 【编排】注入 Movement 的 basis/remap Callable、Camera 节点与 WeaponManager；TP/FP 以 `third_person.is_current()` 为准；路径见 `PlayerViewPaths`。
 ## ═══════════════════════════════════════════════════════════════
 
 
@@ -22,34 +23,34 @@ var current_person: PersonView = PersonView.FIRST
 
 
 # ──────────────────────────────────────────────────────────────
-#  节点引用：第一人称视角链
+#  节点引用：第一人称视角链（相机架为子场景 CameraRigFP，内含 %FPCamera）
 # ──────────────────────────────────────────────────────────────
 
-@onready var nek:           Node3D            = $firstperson/nek
-@onready var head:          Node3D            = $firstperson/nek/head
-@onready var eyes:          Node3D            = $firstperson/nek/head/eyes
-@onready var de_pie:        CollisionShape3D  = $Stand
-@onready var cucilla:       CollisionShape3D  = $Crouch
-@onready var raycast3d:     RayCast3D         = $RayCast3D    ## 头顶障碍检测（防止蹲下被卡住）
-@onready var player_camera: Camera3D          = $firstperson/nek/head/eyes/Camera3D
+@onready var nek: Node3D = $firstperson/nek
+@onready var head: Node3D = $firstperson/nek/head
+@onready var camera_rig_fp: CameraRigFP = $firstperson/nek/head/CameraRigFP
+@onready var de_pie: CollisionShape3D = $Stand
+@onready var cucilla: CollisionShape3D = $Crouch
+@onready var raycast3d: RayCast3D = $RayCast3D    ## 头顶障碍检测（防止蹲下被卡住）
+@onready var player_camera: Camera3D = $firstperson/nek/head/CameraRigFP/FPCamera
 
 
 # ──────────────────────────────────────────────────────────────
 #  节点引用：第三人称视角
 # ──────────────────────────────────────────────────────────────
 
-@onready var t_person:      Node3D    = $thirdperson
-@onready var third_person:  Camera3D  = $thirdperson/Camera3D
+@onready var t_person: Node3D = get_node(PlayerViewPaths.THIRD_PERSON_RIG) as Node3D
+@onready var third_person: Camera3D = get_node(PlayerViewPaths.THIRD_PERSON_CAMERA) as Camera3D
 
 
 # ──────────────────────────────────────────────────────────────
 #  节点引用：交互 / 捡物
 # ──────────────────────────────────────────────────────────────
 
-@onready var interactable_ray: RayCast3D         = $firstperson/nek/head/eyes/Camera3D/Interactable
-@onready var pickray:          RayCast3D         = $firstperson/nek/head/eyes/Camera3D/pickray
-@onready var holdposition:     Node3D            = $firstperson/nek/head/eyes/Camera3D/HoldPosition
-@onready var joint:            Generic6DOFJoint3D = $firstperson/nek/head/eyes/Camera3D/Generic6DOFJoint3D
+@onready var interactable_ray: RayCast3D = $firstperson/nek/head/CameraRigFP/FPCamera/Interactable
+@onready var pickray: RayCast3D = $firstperson/nek/head/CameraRigFP/FPCamera/pickray
+@onready var holdposition: Node3D = $firstperson/nek/head/CameraRigFP/FPCamera/HoldPosition
+@onready var joint: Generic6DOFJoint3D = $firstperson/nek/head/CameraRigFP/FPCamera/Generic6DOFJoint3D
 
 
 # ──────────────────────────────────────────────────────────────
@@ -59,7 +60,7 @@ var current_person: PersonView = PersonView.FIRST
 #       apply_sway / apply_ammo_supply / is_hand；并连接 ammo_changed 等信号。
 # ──────────────────────────────────────────────────────────────
 
-@onready var weapon_manager: WeaponManager = $firstperson/nek/head/eyes/Camera3D/Weapon_manager
+@onready var weapon_manager: WeaponManager = $Weapon_manager
 
 
 # ──────────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ signal health_changed(current: float, maximum: float)
 signal player_hit      ## 受击时由 UI 控制器显示 hit_rect
 signal Update_Ammo     ## 中继 WeaponManager.ammo_changed 给 UI（保留原信号名）
 
-@export var playerStats: Stats
+@export var player_stats: Stats
 var max_health: float
 var health:     float
 
@@ -153,6 +154,18 @@ func _ready() -> void:
 #  输入处理
 # ═══════════════════════════════════════════════════════════════
 
+func _get_movement_basis_for_current_person() -> Basis:
+	if third_person.is_current():
+		return camera_controller.get_third_person_movement_basis()
+	return transform.basis
+
+
+func _remap_move_input_for_person(raw: Vector2) -> Vector2:
+	if third_person.is_current():
+		return raw
+	return Vector2(-raw.x, -raw.y)
+
+
 func _setup_components() -> void:
 	if not movement_component:
 		return
@@ -160,26 +173,10 @@ func _setup_components() -> void:
 	# ─────────────────────────────
 	#  1. 运动 / 相机 / 交互组件初始化
 	# ─────────────────────────────
-	movement_component.setup(
-		self,
-		input_controller,
-		raycast3d,
-		de_pie,
-		cucilla,
-		head,
-		animation_tree,
-		player_mesh
-	)
-	camera_controller.setup(
-		self,
-		nek,
-		head,
-		eyes,
-		player_camera,
-		third_person,
-		t_person,
-		10.0
-	)
+	movement_component.setup(self, input_controller, raycast3d, de_pie, cucilla, head, animation_tree)
+	camera_controller.setup(self, nek, head, camera_rig_fp, third_person, t_person, 10.0, weapon_manager)
+	movement_component.external_movement_basis_provider = Callable(self, "_get_movement_basis_for_current_person")
+	movement_component.remap_move_input = Callable(self, "_remap_move_input_for_person")
 	interaction_component.setup(
 		interactable_ray,
 		pickray,
@@ -241,16 +238,24 @@ func _setup_components() -> void:
 	Ammo_container.visible = false
 
 func _on_input_mouse_moved(relative: Vector2) -> void:
-	if TutorialManager.is_look_allowed():
-		var freelook: bool = movement_component.freelook if movement_component else false
-		camera_controller.update_look(relative, player_camera.is_current(), freelook)
-		weapon_manager.apply_sway(relative)
+	if not TutorialManager.is_look_allowed():
+		return
+	var freelook: bool = movement_component.freelook if movement_component else false
+	# 必须用「当前激活的相机」分支，勿用「非 FP」推断；否则 FP 仍 is_current 时会同时转身体 + 第三人称架，镜头与角色会乱拧。
+	if third_person.is_current():
+		camera_controller.update_look(relative, false, freelook)
+	elif player_camera.is_current():
+		camera_controller.update_look(relative, true, freelook)
+	weapon_manager.apply_sway(relative)
 
 func _on_change_person_pressed() -> void:
 	if player_camera.is_current():
-		player_camera.clear_current(true)
+		third_person.make_current()
 	else:
-		third_person.clear_current(true)
+		player_camera.make_current()
+		# 切回第一人称时还原模型绕 Y，避免第三人称走路扭身带进 FP
+		if player_mesh:
+			player_mesh.rotation.y = 0.0
 
 func _on_input_interact() -> void:
 	interaction_component.on_interact_pressed()
@@ -279,25 +284,64 @@ func _physics_process(delta: float) -> void:
 		if not is_on_floor():
 			velocity.y -= gravity * delta
 		move_and_slide()
-	if camera_controller and movement_component:
-		var input_dir = input_controller.get_move_input() if input_controller else Vector2.ZERO
-		camera_controller.update_visual_effects(
-			delta, input_dir, movement_component.current_state, movement_component.freelook, is_on_floor()
-		)
+	if camera_controller:
+		var move_in = input_controller.get_move_input() if input_controller else Vector2.ZERO
+		if third_person.is_current():
+			camera_controller.update_third_person_camera(delta)
+		if movement_component:
+			camera_controller.update_visual_effects(
+				delta, move_in, movement_component.current_state, movement_component.freelook, is_on_floor()
+			)
 	if interaction_component:
 		interaction_component.update()
 	if input_controller and input_controller.is_shoot_held():
 		weapon_manager.request_auto_shoot()
 	_update_person_view()
 	_update_body_visibility()
-	if third_person.is_current() and movement_component and movement_component.direction.length_squared() > 0.01:
-		if movement_component.current_state in [1, 2]:  # WALKING, SPRINTING
-			player_mesh.look_at(-movement_component.direction + global_position, Vector3.UP)
+	_apply_third_person_body_face_movement(delta)
 
 
 # ═══════════════════════════════════════════════════════════════
 #  视角 & 角色模型可见性
 # ═══════════════════════════════════════════════════════════════
+
+## 战斗锁定：由任务/交互脚本传入敌人等 Node3D；清除时传 null
+func set_camera_lock_on_target(target: Node3D) -> void:
+	if camera_controller:
+		camera_controller.set_lock_on_target(target)
+
+
+func clear_camera_lock_on_target() -> void:
+	if camera_controller:
+		camera_controller.clear_lock_on_target()
+
+
+func _apply_mesh_yaw_world(delta: float, world_yaw: float, sm: float = 10.0) -> void:
+	var g := player_mesh.global_rotation
+	g.y = lerp_angle(g.y, world_yaw, clampf(delta * sm, 0.0, 1.0))
+	player_mesh.global_rotation = g
+
+
+func _apply_third_person_body_face_movement(delta: float) -> void:
+	if not third_person.is_current() or movement_component == null or camera_controller == null or player_mesh == null:
+		return
+	if camera_controller.has_lock_on_target():
+		var tgt: Node3D = camera_controller.get_lock_on_target()
+		if tgt != null and is_instance_valid(tgt):
+			var p := global_position
+			var tp := tgt.global_position
+			var dx := tp.x - p.x
+			var dz := tp.z - p.z
+			if dx * dx + dz * dz > 0.01:
+				_apply_mesh_yaw_world(delta, atan2(dx, dz))
+		return
+	if movement_component.direction.length_squared() < 0.01:
+		return
+	if movement_component.current_state not in [1, 2]:
+		return
+	var dir: Vector3 = movement_component.direction
+	_apply_mesh_yaw_world(delta, atan2(dir.x, dir.z))
+
 
 func _update_person_view() -> void:
 	current_person = PersonView.FIRST if player_camera.is_current() else PersonView.THIRD
@@ -316,19 +360,25 @@ func _update_body_visibility() -> void:
 # ═══════════════════════════════════════════════════════════════
 
 func _setup_player_stats() -> void:
-	playerStats.health_changed.connect(_on_stats_health_changed)
-	playerStats.died.connect(_on_player_died)
-	GeneManager.genes_changed.connect(playerStats.recalculate_stats)
-	health = playerStats.current_health
-	max_health = playerStats.current_max_health
+	player_stats.health_changed.connect(_on_stats_health_changed)
+	player_stats.died.connect(_on_player_died)
+	if not player_stats.character_level_up.is_connected(_on_player_stats_level_up):
+		player_stats.character_level_up.connect(_on_player_stats_level_up)
+	GeneManager.genes_changed.connect(player_stats.recalculate_stats)
+	health = player_stats.current_health
+	max_health = player_stats.current_max_health
 	# 初始发送当前值（restore_to_player 之后会再次触发 health_changed）
-	health_changed.emit(playerStats.current_health, playerStats.current_max_health)
+	health_changed.emit(player_stats.current_health, player_stats.current_max_health)
 
 
 func _on_stats_health_changed(cur: float, max_val: float) -> void:
 	health = cur
 	max_health = max_val
 	health_changed.emit(cur, max_val)
+
+
+func _on_player_stats_level_up(new_level: int) -> void:
+	GBMssage.show_message("等级提升至 %d" % new_level, "success")
 
 
 ## 读档后恢复武器槽位与弹药（由 CharacterDataManager call_deferred 触发）
@@ -346,7 +396,7 @@ func _async_restore_weapon_loadout(loadout: Dictionary) -> void:
 ## 接收 AttackData（技能/武器统一受击接口）
 func apply_attack_data(attack_data: AttackData) -> void:
 	player_hit.emit()
-	playerStats.apply_attack_data(attack_data)
+	player_stats.apply_attack_data(attack_data)
 
 
 ## 受到来自敌人的攻击（支持 AttackData 防御减伤）
@@ -356,26 +406,28 @@ func take_damage(attack_data: AttackData = null) -> void:
 		var fallback := AttackData.new()
 		fallback.source = AttackData.AttackType.WEAPON
 		fallback.base_damage = 10.0
-		fallback.final_damage = maxf(10.0 - playerStats.current_defense, 1.0)
+		fallback.final_damage = maxf(10.0 - player_stats.current_defense, 1.0)
 		attack_data = fallback
-	playerStats.take_damage(attack_data)
+	player_stats.take_damage(attack_data)
 
 
 func apply_healing(amount: float) -> void:
-	playerStats.heal(amount)
+	player_stats.heal(amount)
 
 
 func _on_player_died() -> void:
-	health = playerStats.current_max_health
-	max_health = playerStats.current_max_health
+	health = player_stats.current_max_health
+	max_health = player_stats.current_max_health
 	health_changed.emit(health, max_health)
 	player_died.emit()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
-		if GeneManager.genes_changed.is_connected(playerStats.recalculate_stats):
-			GeneManager.genes_changed.disconnect(playerStats.recalculate_stats)
+		if player_stats.character_level_up.is_connected(_on_player_stats_level_up):
+			player_stats.character_level_up.disconnect(_on_player_stats_level_up)
+		if GeneManager.genes_changed.is_connected(player_stats.recalculate_stats):
+			GeneManager.genes_changed.disconnect(player_stats.recalculate_stats)
 		CharacterDataManager.snapshot_before_scene_change()
 		# viewmodel 容器挂在根 viewport，场景切换时不会自动释放，需显式清理
 		if weapon_manager:
@@ -420,9 +472,9 @@ func _setup_skills() -> void:
 			SkillManager.add_to_skill_bar("Group Healing", 2)
 
 
-## 临时测试：验证基因系统链路（猛禽视觉 1001 提升暴击率）
+## 临时测试：验证基因系统链路（猛禽视觉 2001001 提升暴击率）
 func _test_gene_system() -> void:
-	const GENE_ID := 1001  # 猛禽视觉
+	const GENE_ID := 2001001  # 猛禽视觉（与 game_data/genes.json 7 位 ID 一致）
 	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	print("🧬 [基因测试] 开始验证基因系统链路")
 
@@ -435,7 +487,7 @@ func _test_gene_system() -> void:
 
 	# 2. 设置职业与点数，记录基础暴击率
 	GeneManager.setup("Predator Striker", 100)
-	var base_crit := playerStats.base_critical_rate
+	var base_crit := player_stats.base_critical_rate
 
 	# 3. 解锁（若已从快照恢复则跳过）并激活
 	if not GeneManager.has_gene(GENE_ID):
@@ -449,13 +501,13 @@ func _test_gene_system() -> void:
 		return
 
 	# 4. 验证 Stats 已更新（genes_changed → recalculate_stats）
-	var crit_after := playerStats.current_critical_rate
+	var crit_after := player_stats.current_critical_rate
 	var bonuses := GeneManager.get_bonuses()
 
 	print("   ✅ 基因: %s (ID=%d)" % [def.gene_name, GENE_ID])
 	print("   📊 暴击率: base=%.2f%% → current=%.2f%%" % [base_crit * 100, crit_after * 100])
-	print("   📊 暴击倍率: %.2f" % playerStats.current_critical_damage)
-	print("   📊 闪避率: %.2f%%" % (playerStats.current_evasion * 100))
+	print("   📊 暴击倍率: %.2f" % player_stats.current_critical_damage)
+	print("   📊 闪避率: %.2f%%" % (player_stats.current_evasion * 100))
 	print("   📊 激活基因数: %d / %d" % [GeneManager.get_active_count(), GeneManager.get_slot_limit()])
 	if bonuses.get("crit_rate_bonus", 0.0) != 0.0 or bonuses.get("crit_rate", 0.0) != 0.0:
 		print("   📊 基因暴击加成: +%.2f%%" % ((bonuses.get("crit_rate_bonus", 0.0) + bonuses.get("crit_rate", 0.0)) * 100))
@@ -463,7 +515,7 @@ func _test_gene_system() -> void:
 	# 5. 快速暴击模拟（100 次判定）
 	var crit_hits := 0
 	for i in 100:
-		if playerStats.roll_critical():
+		if player_stats.roll_critical():
 			crit_hits += 1
 	print("   🎲 暴击模拟(100次): %d 次暴击 (期望约 %.0f)" % [crit_hits, crit_after * 100])
 	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -512,7 +564,7 @@ func get_target_node() -> Node3D:
 	if coll is Node3D:
 		var n: Node = coll
 		while n:
-			if n.get("stats") != null or n.get("playerStats") != null:
+			if n.get("stats") != null or n.get("player_stats") != null:
 				return n as Node3D
 			n = n.get_parent()
 		return coll as Node3D

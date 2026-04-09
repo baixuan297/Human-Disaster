@@ -4,7 +4,7 @@
 
 | 路径 | 内容 |
 |------|------|
-| `player/` | `Player.gd`、移动/相机/交互/输入等组件 |
+| `player/` | `Player.gd`、`CameraController.gd`、`MovementComponent.gd`、`player_view_paths.gd`（`class_name PlayerViewPaths`，第三人称/瞄准路径常量）、`camera_rig_fp.gd`（`class_name CameraRigFP`，`Scene/Player/CameraRigFP.tscn`）、`Scene/Player/ThirdPersonCameraRig.tscn` 等 |
 | `gun/` | 武器基类、弹道、世界可拾取武器、音效池 |
 | `enemy/` | 敌人与部位受击 |
 | `SkillSystem/` | 技能实例与效果脚本 |
@@ -17,3 +17,5 @@
 | 根目录 | `world.gd`（`class_name World`）等关卡根脚本 |
 
 **Autoload 单例**位于 `res://autoload/`，不在 `Script/` 下；架构说明见 [AUTOLOAD_AND_UI.md](AUTOLOAD_AND_UI.md)。
+
+第一 / 第三人称相机与移动注入约定见 [PLAYER_CAMERA_AND_MOVEMENT.md](PLAYER_CAMERA_AND_MOVEMENT.md)。

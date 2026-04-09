@@ -18,22 +18,25 @@ class_name WeaponManager
 ##         → _do_shoot() → 射线取目标点 → 当前槽 BaseWeapon.attack()
 ##         → 扣弹、发 ammo_changed
 ##
-## 【挂载位置】必须为 **第一人称 Camera3D** 的子节点，以便：
-##   - get_parent() → 主相机（viewmodel 同步旋转）
-##   - _is_third_person_active()：当前相机非 current 时为第三人称
-##   路径示例：Player/.../Camera3D/Weapon_manager
+## 【挂载位置】**CharacterBody3D（玩家根）** 的子节点，节点名建议 `Weapon_manager`。
+##   - 在 _ready 中按路径解析 **FPCamera**（默认 `firstperson/nek/head/CameraRigFP/FPCamera`）
+##   - viewmodel 每帧同步 `_main_camera` 的 basis；`_is_third_person_active()` 用 `not _main_camera.is_current()`
+##   - 仍兼容：若父节点为 Camera3D（旧层级），则视父节点即 FPCamera
 ##
-## 【节点绑定】在 _ready 中自动解析（无需 Player.setup 传参）：
-##   - CharacterBody3D：沿父链向上查找
-##   - 一摄瞄准：同相机下子节点 Aimray / aimrayend（可用 weapon_bind_* 覆盖）
-##   - 三摄瞄准：相对角色根 thirdperson/Camera3D/Aimray（可 export 覆盖）
+## 【节点绑定】自动解析（无需 Player.setup 传参）：
+##   - 玩家根：父节点为 CharacterBody3D 时即 `_player`，否则沿父链查找
+##   - 一摄瞄准：FPCamera 下 Aimray / aimrayend（weapon_bind_fp_* 可覆盖）
+##   - 三摄瞄准：相对玩家根路径见 `PlayerViewPaths.THIRD_PERSON_AIMRAY`（weapon_bind_tp_* 可覆盖）
+##
+## 【禁止 autoload】若写入 project.godot autoload，父节点为根窗口，绑定会失败。
 ## ═══════════════════════════════════════════════════════════════
 
-# 与 Fish_Man 等场景默认节点名一致；改名时请在检视器填 weapon_bind_* 覆盖
+# 与 Fish_Man / CameraRigFP 默认结构一致
+const _DEFAULT_FP_CAMERA_FROM_PLAYER := NodePath("firstperson/nek/head/CameraRigFP/FPCamera")
 const _DEFAULT_FP_RAY_NAME := "Aimray"
 const _DEFAULT_FP_RAY_END_NAME := "aimrayend"
-const _DEFAULT_TP_RAY_FROM_PLAYER := NodePath("thirdperson/Camera3D/Aimray")
-const _DEFAULT_TP_RAY_END_FROM_PLAYER := NodePath("thirdperson/Camera3D/aimrayend")
+const _DEFAULT_TP_RAY_FROM_PLAYER := PlayerViewPaths.THIRD_PERSON_AIMRAY
+const _DEFAULT_TP_RAY_END_FROM_PLAYER := PlayerViewPaths.THIRD_PERSON_AIMRAY_END
 
 # ──────────────────────────────────────────────────────────────
 #  槽位常量（对外只暴露槽位索引，不暴露内部 _slots 结构）
@@ -67,11 +70,13 @@ signal switched_to_hand
 #  运行时引用（_ready 内 _bind_runtime_nodes 解析，或由 weapon_bind_* 覆盖）
 # ──────────────────────────────────────────────────────────────
 
-## 相对 **本 WeaponManager 节点** 的一摄射线（留空则用父相机下默认子节点名）
+## 相对 **玩家 CharacterBody3D** 的第一人称相机（留空则用默认 CameraRigFP/FPCamera）
 @export_group("可选绑定（留空=自动）", "weapon_bind_")
+@export var weapon_bind_fp_camera: NodePath = NodePath("")
+## 相对 **本 WeaponManager 节点** 的一摄射线（留空则用 FPCamera 下默认子节点名）
 @export var weapon_bind_fp_ray: NodePath = NodePath("")
 @export var weapon_bind_fp_ray_end: NodePath = NodePath("")
-## 相对 **CharacterBody3D（玩家根）** 的三摄射线；留空则用 thirdperson/Camera3D/...
+## 相对 **CharacterBody3D（玩家根）** 的三摄射线；留空则用 `PlayerViewPaths.THIRD_PERSON_AIMRAY` 等默认路径
 @export var weapon_bind_tp_ray: NodePath = NodePath("")
 @export var weapon_bind_tp_ray_end: NodePath = NodePath("")
 
@@ -107,6 +112,15 @@ var _dry_fire_played_this_trigger: bool = false
 # ═══════════════════════════════════════════════════════════════
 
 func _ready() -> void:
+	var parent_node := get_parent()
+	if parent_node == null:
+		push_warning("WeaponManager: 无父节点，已跳过绑定。")
+		return
+	if not (parent_node is CharacterBody3D) and not (parent_node is Camera3D):
+		push_warning(
+			"WeaponManager: 父节点应为 CharacterBody3D 或（旧版）Camera3D，当前已跳过绑定；禁止加入 autoload。"
+		)
+		return
 	_bind_runtime_nodes()
 
 
@@ -126,20 +140,31 @@ func _physics_process(_delta: float) -> void:
 # ═══════════════════════════════════════════════════════════════
 
 func _bind_runtime_nodes() -> void:
-	var cam := get_parent()
-	if not (cam is Camera3D):
-		push_error("WeaponManager: 父节点必须是 Camera3D（第一人称相机），当前=%s" % cam)
-		return
-	_main_camera = cam as Camera3D
+	var parent_node := get_parent()
 
-	_player = _find_character_body_ancestor()
+	if parent_node is CharacterBody3D:
+		_player = parent_node as CharacterBody3D
+	elif parent_node is Camera3D:
+		# 旧层级：挂在 FPCamera 下
+		_main_camera = parent_node as Camera3D
+		_player = _find_character_body_ancestor()
+	else:
+		_player = _find_character_body_ancestor()
+
 	if _player == null:
-		push_error("WeaponManager: 父链上未找到 CharacterBody3D，无法绑定玩家")
+		push_error("WeaponManager: 未找到 CharacterBody3D，无法绑定玩家")
 		return
+
+	if _main_camera == null:
+		var fp_path := weapon_bind_fp_camera if not weapon_bind_fp_camera.is_empty() else _DEFAULT_FP_CAMERA_FROM_PLAYER
+		_main_camera = _player.get_node_or_null(fp_path) as Camera3D
+		if _main_camera == null:
+			push_error("WeaponManager: 未找到第一人称 FPCamera（路径 %s）" % fp_path)
+			return
 
 	_world_root = _player.get_parent() as Node3D
 
-	# 一摄：默认同级子节点；可填相对本节点的 NodePath（如 ../Aimray）
+	# 一摄：默认 FPCamera 下子节点；可填相对本 WeaponManager 的 NodePath
 	if weapon_bind_fp_ray.is_empty():
 		_aimray_first = _main_camera.get_node_or_null(_DEFAULT_FP_RAY_NAME) as RayCast3D
 	else:
@@ -524,8 +549,8 @@ func _handle_raycast_impact(collider: Node, _hit_point: Vector3, data: WeaponDat
 	if collider.is_in_group("enemy") and collider.has_method("enemy_hit"):
 		var override_crit_rate: float = -1.0
 		var override_crit_mult: float = -1.0
-		if _player and _player.get("playerStats"):
-			var s = _player.playerStats
+		if _player and _player.get("player_stats"):
+			var s = _player.player_stats
 			if s:
 				override_crit_rate = s.current_critical_rate
 				override_crit_mult = s.current_critical_damage
@@ -693,8 +718,9 @@ func _slot_from_data(data: WeaponData) -> int:
 
 ## 判断当前是否为第三人称（本节点挂载在 Camera3D 下，父节点即主相机）
 func _is_third_person_active() -> bool:
-	var cam := get_parent() as Camera3D
-	return cam != null and not cam.is_current()
+	if _main_camera == null:
+		return false
+	return not _main_camera.is_current()
 
 func _emit_current_ammo() -> void:
 	var data := _get_current_data()

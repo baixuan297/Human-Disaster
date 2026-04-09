@@ -32,6 +32,13 @@ func register_from_game_data_manager() -> void:
 			if item.icon:
 				icons_cache[key] = item.icon
 	print("[ItemDatabase] 从 GameDataManager 同步 %d 个物品" % all_items.size())
+	# 静态表就绪后重跑背包解析（避免物品 API 晚于角色背包 API 时槽位为空）
+	call_deferred("_deferred_rehydrate_inventory")
+
+
+func _deferred_rehydrate_inventory() -> void:
+	if InventoryManager:
+		InventoryManager.reapply_last_serializable_inventory()
 
 # ── 从本地 JSON 文件加载（兼容旧系统）───────────────────────────────────────
 
@@ -186,8 +193,8 @@ func load_json_from_folder():
 		dir.list_dir_begin()
 		var file_name = dir.get_next()
 		while file_name != "":
-			load_items_from_json(folder_path + file_name)
-			#print(folder_path + file_name)
+			if not file_name.begins_with(".") and file_name.ends_with(".json"):
+				load_items_from_json(folder_path + file_name)
 			file_name = dir.get_next()
 		dir.list_dir_end()
 	else:

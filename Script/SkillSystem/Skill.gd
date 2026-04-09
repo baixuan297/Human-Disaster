@@ -3,7 +3,7 @@
 ## 修复/新增：
 ##   1. [FIX]  _execute_dot_skill   — 调用 target 的 stats.apply_dot()（原调用不存在的方法）
 ##   2. [NEW]  _execute_debuff_skill — 通过 StatBuff + stats.add_temporary_buff() 实现减益
-##   3. [NEW]  _get_target_stats()  — 统一获取目标 Stats（兼容 .stats 和 .playerStats）
+##   3. [NEW]  _get_target_stats()  — 统一获取目标 Stats（兼容 .stats 和 .player_stats）
 ##   4. [KEEP] 其他所有现有逻辑保持不变（INSTANT / PROJECTILE / AOE / BUFF）
 
 
@@ -243,16 +243,16 @@ func _execute_debuff_skill(target_node: Node3D) -> void:
 
 
 # =============================================================================
-# 辅助：获取 Stats Resource（兼容 enemy.stats 和 Player.playerStats）
+# 辅助：获取 Stats Resource（兼容 enemy.stats 和 Player.player_stats）
 # =============================================================================
 
 ## 从目标节点取出 Stats Resource
-## 优先查 .stats（BaseEnemy），其次查 .playerStats（Player）
+## 优先查 .stats（BaseEnemy），其次查 .player_stats（Player）
 func _get_target_stats(target: Node3D) -> Stats:
 	var s = target.get("stats")
 	if s is Stats:
 		return s
-	s = target.get("playerStats")
+	s = target.get("player_stats")
 	if s is Stats:
 		return s
 	return null
