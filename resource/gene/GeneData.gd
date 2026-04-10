@@ -44,8 +44,17 @@ var icon_path: String = ""
 var class_restriction: Array[String] = []
 ## 前置基因 ID 列表
 var prerequisite_gene_ids: Array[int] = []
+## 解锁所需最低角色等级（另需达到 GeneManager 基因系统开放等级）
+var unlock_min_level: int = 20
+## 测试用基因：不写入服务端、不参与存档
+var is_test: bool = false
 ## 每级效果原始数据（来自 JSON）
 var level_effects: Array = []
+## 子基因模板（来自 JSON modules[]，GeneModuleData）
+var gene_modules: Array = []
+## 子基因数量上限（与后端 `game.genes.sub_gene_limits` 一致）
+## 例：`{ "max_modules_total": 4, "max_modules_per_line": { "main": 2, "side": 2 } }`
+var sub_gene_limits: Dictionary = {}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -58,7 +67,9 @@ static func from_dict(d: Dictionary) -> GeneData:
 	g.gene_name = d.get("name", "")
 	g.description = d.get("description", "")
 	g.max_level = int(d.get("max_level", 5))
-	g.icon_path = d.get("icon_path", "")
+	g.icon_path = str(d.get("icon_path", ""))
+	g.unlock_min_level = int(d.get("unlock_min_level", 20))
+	g.is_test = bool(d.get("is_test", false))
 
 	var type_str: String = d.get("gene_type", "UTILITY")
 	match type_str.to_upper():
@@ -91,6 +102,20 @@ static func from_dict(d: Dictionary) -> GeneData:
 	if effects is Array:
 		g.level_effects = effects.duplicate(true)
 
+	var mods = d.get("modules", [])
+	if mods is Array:
+		var gid := int(d.get("gene_id", 0))
+		for mo in mods:
+			if mo is Dictionary:
+				var dict_copy := (mo as Dictionary).duplicate(true)
+				if not dict_copy.has("parent_gene_id"):
+					dict_copy["parent_gene_id"] = gid
+				g.gene_modules.append(GeneModuleData.from_dict(dict_copy))
+
+	var sgl = d.get("sub_gene_limits", {})
+	if sgl is Dictionary:
+		g.sub_gene_limits = (sgl as Dictionary).duplicate(true)
+
 	return g
 
 
@@ -105,7 +130,7 @@ func get_effect_at_level(level: int) -> Dictionary:
 	return {}
 
 
-## 获取指定等级的属性加成（过滤 "level"/"description"）
+## 获取指定等级的属性加成（过滤 "level"/"description"，保留 vs_targets 等结构化字段）
 func get_bonuses_at_level(level: int) -> Dictionary:
 	var effect := get_effect_at_level(level)
 	var bonuses := {}

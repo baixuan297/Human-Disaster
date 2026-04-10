@@ -8,18 +8,22 @@
 
 config_version=5
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
 
 config/name="Desastre Humano"
 config/tags=PackedStringArray("3d")
 run/main_scene="res://Scene/menu/main_menu3d.tscn"
-config/features=PackedStringArray("4.5", "Forward Plus")
+config/features=PackedStringArray("4.6", "Forward Plus")
 boot_splash/image="res://素材/image/mainMenu/icon-title 1080x1080px.png"
 config/icon="res://素材/image/mainMenu/icon-title 1080x1080px.png"
 
 [audio]
 
-buses/default_bus_layout="res://素材/sound/default_bus_layout.tres"
+buses/default_bus_layout="uid://cackotkspvfy8"
 
 [autoload]
 
@@ -30,7 +34,9 @@ ApiManager="*res://autoload/APIManager.gd"
 GameDataManager="*res://autoload/GameDataManager.gd"
 GeneManager="*res://autoload/GeneManager.gd"
 CharacterDataManager="*res://autoload/CharacterDataManager.gd"
-InventoryManager="*res://addons/xuanBag/scripts/InventoryManager.gd"
+ExperienceRewards="*res://autoload/ExperienceRewards.gd"
+EnemyLootService="*res://autoload/EnemyLootService.gd"
+InventoryManager="*uid://g140fb3ccc3m"
 SceneManager="*res://autoload/SceneManager.gd"
 PauseManager="*res://autoload/PauseManager.gd"
 UiManager="*res://autoload/UIManager.gd"

@@ -1,4 +1,4 @@
-[gd_resource type="ArrayMesh" load_steps=8 format=4 uid="uid://v3nkukft5hdb"]
+[gd_resource type="ArrayMesh" format=4 uid="uid://v3nkukft5hdb"]
 
 [ext_resource type="Shader" uid="uid://rdng1cdggt16" path="res://shader_material/skill/lightning/lightning_shader.tres" id="1_nhc3o"]
 [ext_resource type="Shader" uid="uid://clqpb81qss3i7" path="res://shader_material/skill/lightning/lightning_floor_mark_sahder.tres" id="2_dxla4"]

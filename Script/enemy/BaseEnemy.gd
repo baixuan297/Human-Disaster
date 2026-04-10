@@ -7,6 +7,7 @@
 ##   stats.died → _on_died → 清理并 queue_free
 ##
 ## 扩展：apply_dot()、apply_debuff() 供 Skill.gd 的 DOT/DEBUFF 调用
+## 击杀经验：`experience_reward` × 可选等级差倍率 → `Stats.grant_experience_from_source(..., "enemy_kill")`
 
 extends CharacterBody3D
 class_name BaseEnemy
@@ -19,14 +20,29 @@ signal enemy_hit
 @export var stats: Stats
 ## 击杀时奖励给「最后一击」来源（沿节点树向上查找 Player 组）的经验
 @export var experience_reward: float = 25.0
+## 是否按「玩家等级 − 敌人战斗等级」调整经验（一处结算，避免散落倍率）
+@export var experience_use_level_scaling: bool = true
+## 玩家每高敌人 1 级，奖励 ×(1 − 该值)，不低于 min 倍率
+@export var experience_scale_penalty_per_player_level_above: float = 0.05
+## 玩家每低敌人 1 级，奖励 ×(1 + 该值)，不超过 max 倍率
+@export var experience_scale_bonus_per_player_level_below: float = 0.1
+@export var experience_scale_min_mult: float = 0.25
+@export var experience_scale_max_mult: float = 2.0
+## 用于基因 vs_targets 匹配（如 MECHANICAL、CYBORG、MUTANT、HUMANOID）
+@export var combat_tags: Array[String] = ["HUMANOID"]
+## 对应后端 `/game-data/enemies` 的 enemy_id；>0 时在静态数据就绪后覆盖 combat_tags
+@export var enemy_template_id: int = 0
 
 @onready var health_bar = $Stats/SubViewport/health_bar
 @onready var stats_node: Node3D = $Stats          ## 头顶血条容器
 
 # Hurtboxes 在 _ready 内安全获取，子类可覆盖
 var hurt_boxes: Area3D
+## 可选子节点 `AggroComponent`（EnemyAggroComponent）；无则子类仅用默认寻敌
+var enemy_aggro: EnemyAggroComponent = null
 ## 最后一次有效伤害的来源（武器/技能发起者），用于结算经验
 var _last_damage_attacker: Node = null
+var _rank_applied: bool = false
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -43,20 +59,92 @@ func _ready() -> void:
 		health_bar.max_value = 100.0
 		health_bar.value = _health_percent()
 
+	enemy_aggro = get_node_or_null("AggroComponent") as EnemyAggroComponent
+
 	# 连接部位碰撞（安全获取，子类也可手动 setup）
 	hurt_boxes = get_node_or_null("Hurtboxes")
 	if hurt_boxes:
 		hurt_boxes.body_part_hit.connect(_on_area_3d_body_part_hit)
+
+	_sync_combat_tags_from_template()
+	call_deferred("_try_apply_enemy_template_rank")
+
+
+func _sync_combat_tags_from_template() -> void:
+	if enemy_template_id <= 0:
+		return
+	if GameDataManager.is_loaded():
+		_apply_template_combat_tags()
+	elif not GameDataManager.all_data_loaded.is_connected(_on_static_data_ready_combat_tags):
+		GameDataManager.all_data_loaded.connect(_on_static_data_ready_combat_tags, CONNECT_ONE_SHOT)
+
+
+func _on_static_data_ready_combat_tags() -> void:
+	_apply_template_combat_tags()
+
+
+func _apply_template_combat_tags() -> void:
+	if enemy_template_id <= 0:
+		return
+	var tags := GameDataManager.get_enemy_combat_tags(enemy_template_id)
+	if tags.is_empty():
+		return
+	combat_tags = tags
+
+
+func _try_apply_enemy_template_rank() -> void:
+	if _rank_applied or enemy_template_id <= 0 or stats == null:
+		return
+	if not GameDataManager.is_loaded():
+		if not GameDataManager.all_data_loaded.is_connected(_try_apply_enemy_template_rank):
+			GameDataManager.all_data_loaded.connect(_try_apply_enemy_template_rank, CONNECT_ONE_SHOT)
+		return
+	var def: Dictionary = GameDataManager.get_enemy(enemy_template_id)
+	if def.is_empty():
+		return
+	_rank_applied = true
+	var rk: String = str(def.get("enemy_rank", ""))
+	var m: Dictionary = EnemyRank.get_stat_multipliers(rk)
+	stats.base_max_health *= float(m.get("hp", 1.0))
+	stats.base_attack *= float(m.get("atk", 1.0))
+	stats.base_defense *= float(m.get("def", 1.0))
+	experience_reward *= float(m.get("exp", 1.0))
+	stats.recalculate_stats()
+	stats.current_health = stats.current_max_health
 
 
 # ═══════════════════════════════════════════════════════════════════
 # 受击路径
 # ═══════════════════════════════════════════════════════════════════
 
+func get_combat_tags() -> Array:
+	return combat_tags.duplicate()
+
+
+func _apply_attacker_gene_modifiers(attack_data: AttackData) -> void:
+	if attack_data == null:
+		return
+	if attack_data.source != AttackData.AttackType.WEAPON and attack_data.source != AttackData.AttackType.SKILL:
+		return
+	var src: Node = attack_data.source_node
+	if src == null:
+		return
+	var p: Node = src
+	if not p.is_in_group("Player"):
+		p = src.get_parent() if src.get_parent() != null else null
+	if p == null or not p.is_in_group("Player"):
+		return
+	attack_data.final_damage = GeneManager.apply_outgoing_damage_vs_tags(attack_data.final_damage, get_combat_tags())
+	if attack_data.is_critical and stats != null:
+		attack_data.final_damage += GeneManager.get_crit_bonus_damage_from_target_current_hp(stats.current_health)
+
+
 func _on_area_3d_body_part_hit(attack_data: AttackData) -> void:
+	_apply_attacker_gene_modifiers(attack_data)
 	enemy_hit.emit()
 	_record_last_attacker(attack_data)
 	stats.take_damage(attack_data)
+	_notify_aggro(attack_data)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -71,7 +159,7 @@ func _on_health_changed(current_health: float, maximum_health: float) -> void:
 
 func _on_died() -> void:
 	print("💀 敌人死亡")
-	_grant_experience_to_killer()
+	apply_kill_rewards()
 	delete_collision_nodes(self)
 	if stats_node:
 		stats_node.queue_free()
@@ -190,6 +278,7 @@ func apply_attack_data(attack_data: AttackData) -> void:
 	enemy_hit.emit()
 	_record_last_attacker(attack_data)
 	stats.take_damage(attack_data)
+	_notify_aggro(attack_data)
 
 
 func _set_last_attacker_node(src: Node) -> void:
@@ -203,6 +292,43 @@ func _record_last_attacker(attack_data: AttackData) -> void:
 	_set_last_attacker_node(attack_data.source_node)
 
 
+func _notify_aggro(attack_data: AttackData) -> void:
+	if enemy_aggro == null or attack_data == null:
+		return
+	enemy_aggro.add_threat_from_attack(attack_data, 8.0)
+
+
+func get_last_damage_attacker() -> Node:
+	return _last_damage_attacker
+
+
+## 子类若自定义 `_on_died` 且未调用 `super._on_died()`，须在死亡流程早期调用本函数（经验 + 掉落）
+func apply_kill_rewards() -> void:
+	_grant_experience_to_killer()
+	if EnemyLootService:
+		EnemyLootService.process_enemy_death(self, _last_damage_attacker)
+
+
+func _enemy_combat_level() -> int:
+	if stats == null:
+		return 1
+	return stats.level
+
+
+func _experience_mult_for_player(player_stats: Stats) -> float:
+	if not experience_use_level_scaling:
+		return 1.0
+	var el := _enemy_combat_level()
+	var pl := player_stats.level
+	var delta := pl - el
+	var mult := 1.0
+	if delta > 0:
+		mult = 1.0 - float(delta) * experience_scale_penalty_per_player_level_above
+	elif delta < 0:
+		mult = 1.0 + float(-delta) * experience_scale_bonus_per_player_level_below
+	return clampf(mult, experience_scale_min_mult, experience_scale_max_mult)
+
+
 func _grant_experience_to_killer() -> void:
 	if experience_reward <= 0.0:
 		return
@@ -211,7 +337,12 @@ func _grant_experience_to_killer() -> void:
 		if node.is_in_group("Player"):
 			var player_stats_resource: Variant = node.get("player_stats")
 			if player_stats_resource is Stats:
-				(player_stats_resource as Stats).gain_experience(experience_reward)
+				var ps := player_stats_resource as Stats
+				var base := experience_reward * _experience_mult_for_player(ps)
+				if ExperienceRewards:
+					ExperienceRewards.grant(ps, base, "enemy_kill", {"enemy": self})
+				else:
+					ps.grant_experience_from_source(base, "enemy_kill")
 			return
 		node = node.get_parent()
 

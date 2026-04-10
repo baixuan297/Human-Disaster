@@ -124,13 +124,24 @@ sequenceDiagram
 
 1. 使用 `AttackData.final_damage`（已含部位倍率）
 2. 应用防御：`actual_damage = max(final_damage - current_defense, 0)`
-3. 扣血：`current_health = clamp(current_health - actual_damage, 0, current_max_health)`
-4. 发出 `health_changed(current_health, current_max_health)`
-5. 若 `current_health <= 0`，发出 `died`
+3. 基因 **`damage_reduction_flat`**：再减去固定值（不低于 0）
+4. 场景伤害（`HAZARD`）继续应用对应抗性
+5. 扣血；若存在 **`on_hit_regen_pct_of_damage`**，按本次实际受伤再回复一部分（水螅基因近似）
+6. 发出 `health_changed`；若生命 ≤ 0 则 `died`
 
 ---
 
-## 七、AttackData 构造方式
+## 七、基因与 outgoing 伤害（玩家 → 敌人）
+
+- 玩家武器（`WeaponManager` / `Bullet`）在 `AttackData` 上设置 **`is_critical`**，经 `EnemyBodyPart` 计算 `final_damage` 后，由 **`BaseEnemy._apply_attacker_gene_modifiers`**：
+  - 按目标 **`combat_tags`** 与基因 `vs_targets.tags` 交集，应用 `damage_multiplier` 与 `flat_damage`（`GeneManager.apply_outgoing_damage_vs_tags`）。
+  - 若暴击，附加 **`crit_bonus_vs_current_hp_pct × 目标当前生命`**。
+- 技能瞬发（`Skill._execute_instant_skill`）在命中前对敌人做相同修正。
+- 详见 [GENE_SYSTEM.md](GENE_SYSTEM.md)。
+
+---
+
+## 八、AttackData 构造方式
 
 | 来源 | 构造方法 |
 |------|----------|
@@ -142,7 +153,7 @@ sequenceDiagram
 
 ---
 
-## 八、相关文件
+## 九、相关文件
 
 | 文件 | 职责 |
 |------|------|

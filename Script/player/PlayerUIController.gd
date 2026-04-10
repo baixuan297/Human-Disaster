@@ -14,6 +14,10 @@ var hit_rect: Control
 var ammo_current_label: Label
 var ammo_reserve_label: Label
 
+## 合并短时多次经验获得，避免连续击杀刷屏（与 EXPERIENCE_SYSTEM.md 一致）
+var _exp_toast_pending_total: float = 0.0
+var _exp_toast_timer: Timer
+
 
 func setup(
 	p_ui_layer: CanvasLayer,
@@ -141,3 +145,31 @@ func _clear_no_more_bullet() -> void:
 func on_switched_to_hand() -> void:
 	if ammo_container != null:
 		ammo_container.visible = false
+
+
+func _ensure_exp_toast_timer() -> void:
+	if _exp_toast_timer != null and is_instance_valid(_exp_toast_timer):
+		return
+	_exp_toast_timer = Timer.new()
+	_exp_toast_timer.one_shot = true
+	_exp_toast_timer.wait_time = 0.45
+	add_child(_exp_toast_timer)
+	_exp_toast_timer.timeout.connect(_flush_exp_toast)
+
+
+func on_experience_gained(amount: float) -> void:
+	if amount <= 0.0:
+		return
+	_exp_toast_pending_total += amount
+	_ensure_exp_toast_timer()
+	_exp_toast_timer.stop()
+	_exp_toast_timer.start()
+
+
+func _flush_exp_toast() -> void:
+	var total := _exp_toast_pending_total
+	_exp_toast_pending_total = 0.0
+	if total <= 0.0:
+		return
+	if GBMssage:
+		GBMssage.show_message("经验 +%d" % int(round(total)), "info")

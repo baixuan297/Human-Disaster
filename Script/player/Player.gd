@@ -146,8 +146,6 @@ func _ready() -> void:
 	SkillManager.skill_used.connect(_on_skill_used)
 	# 从快照或 API 恢复数据（必须在 _setup_player_stats / _setup_skills 之后）
 	CharacterDataManager.restore_to_player(self)
-	# 临时测试：基因系统链路验证（延迟执行，等待 GameDataManager 加载）
-	get_tree().create_timer(1.5).timeout.connect(_test_gene_system, CONNECT_ONE_SHOT)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -296,6 +294,8 @@ func _physics_process(delta: float) -> void:
 		interaction_component.update()
 	if input_controller and input_controller.is_shoot_held():
 		weapon_manager.request_auto_shoot()
+	if player_stats:
+		player_stats.process_effects(delta)
 	_update_person_view()
 	_update_body_visibility()
 	_apply_third_person_body_face_movement(delta)
@@ -364,6 +364,8 @@ func _setup_player_stats() -> void:
 	player_stats.died.connect(_on_player_died)
 	if not player_stats.character_level_up.is_connected(_on_player_stats_level_up):
 		player_stats.character_level_up.connect(_on_player_stats_level_up)
+	if not player_stats.experience_gained.is_connected(_on_player_stats_experience_gained):
+		player_stats.experience_gained.connect(_on_player_stats_experience_gained)
 	GeneManager.genes_changed.connect(player_stats.recalculate_stats)
 	health = player_stats.current_health
 	max_health = player_stats.current_max_health
@@ -379,6 +381,11 @@ func _on_stats_health_changed(cur: float, max_val: float) -> void:
 
 func _on_player_stats_level_up(new_level: int) -> void:
 	GBMssage.show_message("等级提升至 %d" % new_level, "success")
+
+
+func _on_player_stats_experience_gained(amount: float) -> void:
+	if player_ui_controller != null and player_ui_controller.has_method("on_experience_gained"):
+		player_ui_controller.call("on_experience_gained", amount)
 
 
 ## 读档后恢复武器槽位与弹药（由 CharacterDataManager call_deferred 触发）
@@ -426,6 +433,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		if player_stats.character_level_up.is_connected(_on_player_stats_level_up):
 			player_stats.character_level_up.disconnect(_on_player_stats_level_up)
+		if player_stats.experience_gained.is_connected(_on_player_stats_experience_gained):
+			player_stats.experience_gained.disconnect(_on_player_stats_experience_gained)
 		if GeneManager.genes_changed.is_connected(player_stats.recalculate_stats):
 			GeneManager.genes_changed.disconnect(player_stats.recalculate_stats)
 		CharacterDataManager.snapshot_before_scene_change()
@@ -470,55 +479,6 @@ func _setup_skills() -> void:
 		if groupHealing_skill:
 			SkillManager.add_skill(groupHealing_skill, 1)
 			SkillManager.add_to_skill_bar("Group Healing", 2)
-
-
-## 临时测试：验证基因系统链路（猛禽视觉 2001001 提升暴击率）
-func _test_gene_system() -> void:
-	const GENE_ID := 2001001  # 猛禽视觉（与 game_data/genes.json 7 位 ID 一致）
-	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	print("🧬 [基因测试] 开始验证基因系统链路")
-
-	# 1. 前置检查：基因定义是否已加载
-	var def := GeneManager.get_gene_def(GENE_ID)
-	if def == null:
-		print("   ⚠️ 基因 %d 定义未加载（GameDataManager 可能尚未就绪），跳过测试" % GENE_ID)
-		print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		return
-
-	# 2. 设置职业与点数，记录基础暴击率
-	GeneManager.setup("Predator Striker", 100)
-	var base_crit := player_stats.base_critical_rate
-
-	# 3. 解锁（若已从快照恢复则跳过）并激活
-	if not GeneManager.has_gene(GENE_ID):
-		if not GeneManager.unlock_gene(GENE_ID):
-			print("   ❌ 解锁基因 %d 失败" % GENE_ID)
-			print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-			return
-	if not GeneManager.activate_gene(GENE_ID):
-		print("   ❌ 激活基因 %d 失败（可能槽位已满）" % GENE_ID)
-		print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-		return
-
-	# 4. 验证 Stats 已更新（genes_changed → recalculate_stats）
-	var crit_after := player_stats.current_critical_rate
-	var bonuses := GeneManager.get_bonuses()
-
-	print("   ✅ 基因: %s (ID=%d)" % [def.gene_name, GENE_ID])
-	print("   📊 暴击率: base=%.2f%% → current=%.2f%%" % [base_crit * 100, crit_after * 100])
-	print("   📊 暴击倍率: %.2f" % player_stats.current_critical_damage)
-	print("   📊 闪避率: %.2f%%" % (player_stats.current_evasion * 100))
-	print("   📊 激活基因数: %d / %d" % [GeneManager.get_active_count(), GeneManager.get_slot_limit()])
-	if bonuses.get("crit_rate_bonus", 0.0) != 0.0 or bonuses.get("crit_rate", 0.0) != 0.0:
-		print("   📊 基因暴击加成: +%.2f%%" % ((bonuses.get("crit_rate_bonus", 0.0) + bonuses.get("crit_rate", 0.0)) * 100))
-
-	# 5. 快速暴击模拟（100 次判定）
-	var crit_hits := 0
-	for i in 100:
-		if player_stats.roll_critical():
-			crit_hits += 1
-	print("   🎲 暴击模拟(100次): %d 次暴击 (期望约 %.0f)" % [crit_hits, crit_after * 100])
-	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
 
 func upgrade_skill(skill_name: String) -> void:

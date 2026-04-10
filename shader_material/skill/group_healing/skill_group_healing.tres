@@ -1,4 +1,4 @@
-[gd_resource type="VisualShader" load_steps=15 format=3 uid="uid://cawalyfdg34b7"]
+[gd_resource type="VisualShader" format=3 uid="uid://cawalyfdg34b7"]
 
 [sub_resource type="Gradient" id="Gradient_f6jlf"]
 offsets = PackedFloat32Array(0, 0.5674419, 0.9209302, 1)
@@ -51,67 +51,6 @@ hint = 1
 [sub_resource type="VisualShaderNodeFloatOp" id="VisualShaderNodeFloatOp_ltmst"]
 
 [resource]
-code = "shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, depth_test_default, cull_disabled, diffuse_lambert, specular_schlick_ggx, unshaded;
-
-uniform vec4 circle_color : source_color = vec4(1.000000, 1.000000, 1.000000, 1.000000);
-uniform vec2 Speed;
-uniform sampler2D tex_frg_2 : source_color;
-uniform float FloatParameter : hint_range(0.0, 1.0);
-uniform sampler2D tex_frg_10;
-
-
-
-void fragment() {
-// ColorParameter:7
-	vec4 n_out7p0 = circle_color;
-
-
-// Input:4
-	float n_out4p0 = TIME;
-
-
-// Vector2Parameter:6
-	vec2 n_out6p0 = Speed;
-
-
-// VectorOp:5
-	vec2 n_out5p0 = vec2(n_out4p0) * n_out6p0;
-
-
-// UVFunc:3
-	vec2 n_in3p1 = vec2(1.00000, 1.00000);
-	vec2 n_out3p0 = n_out5p0 * n_in3p1 + UV;
-
-
-// Texture2D:2
-	vec4 n_out2p0 = texture(tex_frg_2, n_out3p0);
-	float n_out2p1 = n_out2p0.r;
-
-
-// FloatParameter:8
-	float n_out8p0 = FloatParameter;
-
-
-// FloatOp:9
-	float n_out9p0 = n_out2p1 + n_out8p0;
-
-
-// Texture2D:10
-	vec4 n_out10p0 = texture(tex_frg_10, UV);
-
-
-// FloatOp:11
-	float n_out11p0 = n_out9p0 * n_out10p0.x;
-
-
-// Output:0
-	ALBEDO = vec3(n_out7p0.xyz);
-	ALPHA = n_out11p0;
-
-
-}
-"
 modes/cull = 2
 flags/unshaded = true
 nodes/fragment/0/position = Vector2(820, 100)

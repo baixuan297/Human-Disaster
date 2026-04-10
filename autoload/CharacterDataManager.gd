@@ -18,7 +18,8 @@ const PLAYER_GROUP := "Player"
 var _stats_snapshot: Dictionary = {}
 var _inventory_snapshot: Array = []
 var _skills_snapshot: Dictionary = {}
-var _genes_snapshot: Array = []
+## 基因快照：可为 { "genes": [], "gene_modules": [] } 或旧版仅 genes 数组
+var _genes_snapshot: Variant = []
 var _scene_state_snapshot: Dictionary = {}  ## scene_path, position, rotation_y, collected_pickables
 var _collected_pickables: Array[String] = []  ## 已拾取物唯一 ID 列表（scene_path|node_path）
 var _scene_state_ready_callbacks: Array[Callable] = []
@@ -137,6 +138,7 @@ func restore_to_player(player: Node) -> void:
 		return
 
 	SkillManager.character = player
+	GeneManager.setup(UserManager.current_character_class)
 
 	if not _stats_snapshot.is_empty():
 		var stats = player.get("player_stats")
@@ -157,7 +159,12 @@ func restore_to_player(player: Node) -> void:
 	else:
 		_restore_skills_from_api()
 
-	if not _genes_snapshot.is_empty():
+	var genes_snap_empty := true
+	if _genes_snapshot is Dictionary:
+		genes_snap_empty = (_genes_snapshot as Dictionary).is_empty()
+	elif _genes_snapshot is Array:
+		genes_snap_empty = (_genes_snapshot as Array).is_empty()
+	if not genes_snap_empty:
 		GeneManager.restore_from_snapshot(_genes_snapshot)
 	else:
 		_restore_genes_from_api()
@@ -226,9 +233,8 @@ func _load_player_data_from_api() -> void:
 
 	ApiManager.load_genes(cid, func(success, resp):
 		if success and resp is Dictionary:
-			var genes_arr: Array = resp.get("genes", [])
-			_genes_snapshot = genes_arr
-			GeneManager.restore_from_snapshot(genes_arr)
+			_genes_snapshot = resp
+			GeneManager.restore_from_snapshot(resp)
 			print("角色基因已从服务器加载")
 		_on_loaded.call()
 	)
@@ -282,6 +288,22 @@ func _restore_inventory_from_api() -> void:
 	)
 
 
+## 子基因等操作在服务端消耗材料后，拉取背包与快照对齐
+func refresh_inventory_from_api(callback: Callable = Callable()) -> void:
+	var cid := UserManager.current_character_id
+	if cid.is_empty():
+		if callback.is_valid():
+			callback.call()
+		return
+	ApiManager.load_inventory(cid, func(success, resp):
+		if success and resp.has("slots"):
+			_inventory_snapshot = resp["slots"]
+			InventoryManager.load_serializable_inventory(resp["slots"])
+		if callback.is_valid():
+			callback.call()
+	)
+
+
 func _restore_skills_from_api() -> void:
 	var cid := UserManager.current_character_id
 	ApiManager.load_skills(cid, func(success, resp):
@@ -300,9 +322,8 @@ func _restore_genes_from_api() -> void:
 	var cid := UserManager.current_character_id
 	ApiManager.load_genes(cid, func(success, resp):
 		if success and resp is Dictionary:
-			var genes_arr: Array = resp.get("genes", [])
-			_genes_snapshot = genes_arr
-			GeneManager.restore_from_snapshot(genes_arr)
+			_genes_snapshot = resp
+			GeneManager.restore_from_snapshot(resp)
 	)
 
 
@@ -348,7 +369,10 @@ func _take_snapshot() -> void:
 			_scene_state_snapshot["collected_pickables"] = _collected_pickables.duplicate()
 	_inventory_snapshot = InventoryManager.get_serializable_inventory()
 	_skills_snapshot = SkillManager.save_skills_data()
-	_genes_snapshot = GeneManager.get_serializable_state()
+	_genes_snapshot = {
+		"genes": GeneManager.get_serializable_state(),
+		"gene_modules": GeneManager.get_serializable_module_state(),
+	}
 
 
 func get_player() -> Node:
@@ -414,7 +438,7 @@ func save_to_api(callback: Callable = Callable(), force: bool = false) -> void:
 		var stats_payload := _stats_snapshot.duplicate()
 		if not _scene_state_snapshot.is_empty():
 			stats_payload["scene_state"] = _scene_state_snapshot
-		var fallback := {"max_health": 100, "current_health": 100, "attack": 10, "defense": 5, "critical_rate": 0.05, "critical_damage": 1.5, "evasion": 0.05, "experience": 0.0, "fire_resistance": 0.0, "poison_resistance": 0.0, "thorns_resistance": 0.0, "other_resistance": 0.0}
+		var fallback := {"max_health": 100, "current_health": 100, "attack": 10, "defense": 5, "critical_rate": 0.05, "critical_damage": 1.5, "evasion": 0.05, "gene_points": GeneManager.gene_points, "experience": 0.0, "sync_breakthroughs_completed": [], "fire_resistance": 0.0, "poison_resistance": 0.0, "thorns_resistance": 0.0, "other_resistance": 0.0}
 		for k in fallback:
 			if not stats_payload.has(k):
 				stats_payload[k] = fallback[k]

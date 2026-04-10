@@ -1,6 +1,6 @@
 # GameDataManager 说明文档
 
-GameDataManager 是**静态游戏数据**的全局加载与查询入口，在启动时从 API 拉取物品、技能、基因的定义数据，供全项目只读查询。
+GameDataManager 是**静态游戏数据**的全局加载与查询入口，在启动时从 API 拉取物品、技能、基因、**敌人模板**的定义数据，供全项目只读查询。
 
 ---
 
@@ -11,7 +11,7 @@ GameDataManager 是**静态游戏数据**的全局加载与查询入口，在启
 | **脚本路径** | `autoload/GameDataManager.gd` |
 | **Autoload 名称** | `GameDataManager` |
 | **依赖** | ApiManager |
-| **数据来源** | `/game-data/items`、`/game-data/skills`、`/game-data/genes`（无需 token） |
+| **数据来源** | `/game-data/items`、`/game-data/skills`、`/game-data/genes`、`/game-data/enemies`（无需 token） |
 
 ---
 
@@ -69,7 +69,7 @@ flowchart TB
 | 2 | 完成 |
 | 3 | 失败 |
 
-- **基因加载开关**：`_LOAD_GENES := false` 时仅加载 items、skills；设为 `true` 时同时加载 genes，`_check_all_loaded` 的 `required` 为 3。
+- **基因 / 敌人开关**：`_LOAD_GENES`、`_LOAD_ENEMIES` 为 `false` 时可关闭对应请求；默认二者均为 `true`，`required` 为 4。
 - **信号**：`all_data_loaded`（全部完成）、`data_progress(loaded, total)`（进度）、`data_load_failed(reason)`（失败）。
 
 ---
@@ -105,6 +105,16 @@ flowchart TB
 | `get_all_genes() -> Array` | 所有基因定义 |
 | `get_gene_level_effect(gene_id: int, level: int) -> Dictionary` | 某基因某等级的效果（level_effects 中匹配 level） |
 
+### 4.4 敌人模板
+
+| 方法 | 说明 |
+|------|------|
+| `get_enemy(enemy_id: int) -> Dictionary` | 含 `enemy_category`、`enemy_rank`、`combat_tags`、`behavior_tree_id`、`ai_behavior_packs`、`skills`、`drops`、`metadata`（`ai_profile` / `boss_phases` 等） |
+| `get_enemy_combat_tags(enemy_id: int) -> Array[String]` | 大写标签，供 `BaseEnemy` 同步 |
+| `get_all_enemies() -> Array` | 所有敌人定义 |
+
+场景里在 **`BaseEnemy.enemy_template_id`** 填与 `enemies.json` 一致的 `enemy_id`，`_ready` 会用静态数据覆盖 `combat_tags`，与基因 `vs_targets.tags` 对齐。
+
 ---
 
 ## 五、使用示例
@@ -125,6 +135,9 @@ var skill = GameDataManager.get_skill_by_name("钛石冲击")
 # 查询基因（需 _LOAD_GENES = true）
 var gene = GameDataManager.get_gene(3001)
 var effect = GameDataManager.get_gene_level_effect(3001, 2)
+
+# 敌人 combat_tags（需 _LOAD_ENEMIES = true）
+var tags = GameDataManager.get_enemy_combat_tags(4001003)
 ```
 
 ---

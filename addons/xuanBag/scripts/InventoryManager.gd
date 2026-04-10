@@ -335,6 +335,38 @@ func _compare_items_by_rarity(a: InventoryItem, b: InventoryItem) -> bool:
 		return a.data.name < b.data.name
 	return a.data.rarity > b.data.rarity
 
+## 按物品模板 ID（与存档 id / game.items.item_id 一致）统计总数量
+func count_numeric_item_id(item_id: int) -> int:
+	var n := 0
+	for i in range(max_slots):
+		var it = items[i]
+		if it == null or not it.data:
+			continue
+		if _coerce_slot_item_id(it.data.id) == item_id:
+			n += it.quantity
+	return n
+
+
+## 从背包各槽位扣减指定模板 ID 的数量（用于基因材料等）
+func try_consume_numeric_item_id(item_id: int, quantity: int) -> bool:
+	if quantity <= 0:
+		return true
+	var need := quantity
+	for i in range(max_slots):
+		if need <= 0:
+			break
+		var it = items[i]
+		if it == null or not it.data:
+			continue
+		if _coerce_slot_item_id(it.data.id) != item_id:
+			continue
+		var take: int = mini(it.quantity, need)
+		if not remove_item(i, take):
+			return false
+		need -= take
+	return need <= 0
+
+
 # 查找物品在背包中的索引
 func find_item_index(item: InventoryItem) -> int:
 	if not item:
@@ -431,3 +463,20 @@ func _refresh_item_data_references() -> void:
 		if fresh:
 			items[i] = InventoryItem.new(fresh, items[i].quantity)
 	inventory_changed.emit()
+
+
+## 宝箱 / 测试：发放一套与 **`StarshipBackend/PSQL_DH/game_data/items.json`**（v2.2.0）一致的物品。
+## 修改 JSON 后请同步更新下列 `add_item_by_numeric_id` 的数字。
+func grant_standard_test_bundle() -> void:
+	add_item_by_numeric_id(1003001, 1)  # M9 Beretta
+	add_item_by_numeric_id(1003009, 1)  # MP7
+	add_item_by_numeric_id(1003010, 1)  # X-87
+	add_item_by_numeric_id(1001010, 2)  # 9×19mm
+	add_item_by_numeric_id(1001011, 2)  # 4.6mm PDW
+	add_item_by_numeric_id(1001012, 2)  # X-87 能量单元
+	add_item_by_numeric_id(1011005, 3)  # 神经镇静合剂
+	add_item_by_numeric_id(1011006, 2)  # 螯合抗辐碘剂
+	add_item_by_numeric_id(1000004, 1)  # 实验室合金钥匙
+	add_item_by_numeric_id(1000005, 1)  # B-7 门禁卡
+	add_item_by_numeric_id(1000006, 1)  # 身份重编码券
+	add_item_by_numeric_id(1001013, 50)  # 星币

@@ -1,4 +1,4 @@
-[gd_resource type="VisualShader" load_steps=6 format=3 uid="uid://clqpb81qss3i7"]
+[gd_resource type="VisualShader" format=3 uid="uid://clqpb81qss3i7"]
 
 [ext_resource type="Texture2D" uid="uid://duibvamr4q5rc" path="res://素材/image/skill/skillEffect/skillLightning/floor_mark_texture.png" id="1_yq0a7"]
 
@@ -18,40 +18,6 @@ parameter_name = "Mark_color"
 default_value_enabled = true
 
 [resource]
-code = "shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, depth_test_default, cull_back, diffuse_lambert, specular_schlick_ggx, unshaded;
-
-uniform vec4 Mark_color : source_color = vec4(1.000000, 1.000000, 1.000000, 1.000000);
-uniform sampler2D tex_frg_2;
-
-
-
-void fragment() {
-// ColorParameter:5
-	vec4 n_out5p0 = Mark_color;
-
-
-// Input:3
-	vec4 n_out3p0 = COLOR;
-	float n_out3p1 = n_out3p0.r;
-
-
-// Texture2D:2
-	vec4 n_out2p0 = texture(tex_frg_2, UV);
-	float n_out2p1 = n_out2p0.r;
-
-
-// FloatOp:4
-	float n_out4p0 = n_out3p1 * n_out2p1;
-
-
-// Output:0
-	ALBEDO = vec3(n_out5p0.xyz);
-	ALPHA = n_out4p0;
-
-
-}
-"
 flags/unshaded = true
 nodes/fragment/2/node = SubResource("VisualShaderNodeTexture_auudj")
 nodes/fragment/2/position = Vector2(-380, 180)

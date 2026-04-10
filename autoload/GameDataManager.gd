@@ -10,6 +10,7 @@
 ##   var item = GameDataManager.get_item(1003001)
 ##   var skill = GameDataManager.get_skill_by_name("钛石冲击")
 ##   var gene  = GameDataManager.get_gene(2003001)
+##   var enemy = GameDataManager.get_enemy(4001003)
 
 extends Node
 
@@ -30,14 +31,17 @@ var _skills: Dictionary = {}
 var _skills_by_name: Dictionary = {}
 ## gene_id (int) → Dictionary
 var _genes:  Dictionary = {}
+## enemy_id (int) → Dictionary
+var _enemies: Dictionary = {}
 
 ## 加载状态：0=未开始 1=加载中 2=完成 3=失败
 var _state: int = 0
 
 # 基因加载开关：后端已支持 /game-data/genes
 const _LOAD_GENES := true
+const _LOAD_ENEMIES := true
 # 跟踪请求完成状态
-var _loaded_flags: Dictionary = {"items": false, "skills": false, "genes": false}
+var _loaded_flags: Dictionary = {"items": false, "skills": false, "genes": false, "enemies": false}
 
 # ── 生命周期 ──────────────────────────────────────────────────────────────────
 
@@ -50,13 +54,15 @@ func _load_all() -> void:
 	if _state == 1:
 		return  # 已经在加载，防止重复调用
 	_state = 1
-	_loaded_flags = {"items": false, "skills": false, "genes": false}
+	_loaded_flags = {"items": false, "skills": false, "genes": false, "enemies": false}
 
 	# 并行请求（APIManager 每次请求独立 HTTPRequest，支持并发）
 	ApiManager.get_game_data_items(_on_items_loaded)
 	ApiManager.get_game_data_skills(_on_skills_loaded)
 	if _LOAD_GENES:
 		ApiManager.get_game_data_genes(_on_genes_loaded)
+	if _LOAD_ENEMIES:
+		ApiManager.get_game_data_enemies(_on_enemies_loaded)
 
 
 # ── 数据加载回调 ──────────────────────────────────────────────────────────────
@@ -108,15 +114,32 @@ func _on_genes_loaded(success: bool, data) -> void:
 	_check_all_loaded()
 
 
+func _on_enemies_loaded(success: bool, data) -> void:
+	if not success:
+		_on_load_error("敌人数据加载失败")
+		return
+	var arr: Array = data if data is Array else data.get("enemies", [])
+	for raw in arr:
+		var eid: int = int(raw.get("enemy_id", 0))
+		if eid > 0:
+			_enemies[eid] = raw
+	_loaded_flags["enemies"] = true
+	_check_all_loaded()
+
+
 func _check_all_loaded() -> void:
 	var loaded: int = _loaded_flags.values().count(true)
-	var required: int = 3 if _LOAD_GENES else 2
+	var required := 2
+	if _LOAD_GENES:
+		required += 1
+	if _LOAD_ENEMIES:
+		required += 1
 	data_progress.emit(loaded, required)
 
 	if loaded >= required:
 		_state = 2
-		print("[GameDataManager] 静态数据加载完成  items=%d  skills=%d  genes=%d"
-			% [_items.size(), _skills.size(), _genes.size()])
+		print("[GameDataManager] 静态数据加载完成  items=%d  skills=%d  genes=%d  enemies=%d"
+			% [_items.size(), _skills.size(), _genes.size(), _enemies.size()])
 		all_data_loaded.emit()
 
 
@@ -219,6 +242,28 @@ func get_genes_available_for_class(_class_name: String) -> Array:
 ## 获取所有基因
 func get_all_genes() -> Array:
 	return _genes.values()
+
+
+# ─── 敌人模板（类别 / combat_tags，与 genes.json vs_targets 对齐）──────────────
+
+## 按 enemy_id 获取敌人定义 Dictionary；含 enemy_category、combat_tags、metadata
+func get_enemy(enemy_id: int) -> Dictionary:
+	return _enemies.get(enemy_id, {})
+
+
+## combat_tags 大写字符串数组，供 BaseEnemy 同步
+func get_enemy_combat_tags(enemy_id: int) -> Array[String]:
+	var raw := get_enemy(enemy_id)
+	var out: Array[String] = []
+	var tags: Variant = raw.get("combat_tags", [])
+	if tags is Array:
+		for t in tags:
+			out.append(str(t).to_upper())
+	return out
+
+
+func get_all_enemies() -> Array:
+	return _enemies.values()
 
 
 ## 获取某个基因在指定等级的效果 Dictionary

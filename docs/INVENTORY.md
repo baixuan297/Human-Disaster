@@ -278,9 +278,9 @@ flowchart TB
 
 ### 9.1 添加物品（你项目中的用法）
 
-- **宝箱 / 交互**：在 `Script/player/InteractionComponent.gd` 中，玩家与 `chest` 分组物体交互时调用 `GameItemIds.grant_standard_test_bundle(InventoryManager)`，与 `items_addon.json` / `game_data/items.json` v2.2.0 一致（武器 M9/MP7/X-87、弹药、药水、工具、星币等）。**勿再使用**旧版数字 ID（201–253、100–103）。
-- **常量与扩展**：`addons/xuanBag/scripts/game_item_ids.gd`（`GameItemIds`）集中定义 `item_id`；新增测试掉落时请同步改 `items_addon.json`、后端 `items.json`、`GameItemIds` 与 `grant_standard_test_bundle()`。
-- **示例脚本**：`addons/xuanBag/scripts/sample.gd` 中测试按钮同样调用 `grant_standard_test_bundle`，并连接 `item_used`（材料 / 药水 / 工具等）。
+- **宝箱 / 交互**：在 `Script/player/InteractionComponent.gd` 中，玩家与 `chest` 分组物体交互时调用 **`InventoryManager.grant_standard_test_bundle()`**（实现于 `addons/xuanBag/scripts/InventoryManager.gd`），与 `game_data/items.json` v2.2.0 一致（武器 M9/MP7/X-87、弹药、药水、工具、星币等）。**勿再使用**旧版数字 ID（201–253、100–103）。
+- **扩展测试掉落**：新增或调整礼包内容时，同步修改 **`InventoryManager.grant_standard_test_bundle()`** 内的 `item_id`、后端 **`StarshipBackend/PSQL_DH/game_data/items.json`**（及本地/Seeder 若有）。
+- **示例脚本**：`addons/xuanBag/scripts/sample.gd` 顶部有本演示用的 `item_id` 常量；测试按钮调用 `inventory.grant_standard_test_bundle()`，并连接 `item_used`（材料 / 药水 / 工具等）。
 
 ### 9.2 打开 / 关闭背包
 

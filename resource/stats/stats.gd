@@ -14,6 +14,10 @@ signal died
 signal experience_changed(total_experience: float, current_level: int)
 ## 仅当等级数字上升时发出（新等级）；降级或读档压级不会触发
 signal character_level_up(new_level: int)
+## `gain_experience` 实际增加量（已含基因经验加成）；供 HUD 合并飘字
+signal experience_gained(amount_added: float)
+## 成功消耗材料并完成一档 SYNC 门槛突破
+signal sync_breakthrough_succeeded(gate_level: int)
 
 # -- 基础数值 --
 ## 最大生命
@@ -31,6 +35,16 @@ signal character_level_up(new_level: int)
 ## 当 level_derived_from_experience 为 false 时使用的战斗等级（与经验无关）
 @export var fixed_combat_level: int = 1
 
+## 与 FastAPI `DEFAULT_SYNC_BREAKTHROUGH_GATE_LEVELS` 一致；改默认须同步后端
+const DEFAULT_SYNC_BREAKTHROUGH_GATES: Array[int] = [20, 25, 30]
+## 留空则用 DEFAULT_SYNC_BREAKTHROUGH_GATES；可改为 [5,10,15,20,25,30] 等与 UI 每 5 级一档对齐
+@export var sync_breakthrough_gate_levels: Array[int] = []
+@export var sync_breakthrough_enabled: bool = true
+## 门槛等级 -> [{ "item_id": int, "quantity": int }]；空数组表示该档仅需经验满即可突破
+@export var sync_breakthrough_costs: Dictionary = {}
+## 已达成的门槛等级（存档 / `sync_breakthroughs_completed` API）
+var sync_breakthroughs_completed: Array[int] = []
+
 ## 暴击率 0.0~1.0（0.05 = 5%）
 @export var base_critical_rate: float = 0.05
 ## 暴击伤害倍率（1.5 = 150%，即额外 50%）
@@ -38,17 +52,17 @@ signal character_level_up(new_level: int)
 ## 闪避率 0.0~1.0
 @export var base_evasion: float = 0.05
 
-# 当前数值（玩家：由经验推导并受 max_level 限制；敌人：fixed_combat_level）
+# 当前数值（玩家：经验公式 + max_level + SYNC 突破门闸；敌人：fixed_combat_level）
 @export var level: int:
 	get():
 		if not level_derived_from_experience:
 			if max_level > 0:
 				return clampi(fixed_combat_level, 1, max_level)
 			return maxi(fixed_combat_level, 1)
-		var raw_level_from_experience := _compute_raw_level()
-		if max_level <= 0:
-			return raw_level_from_experience
-		return mini(raw_level_from_experience, max_level)
+		var raw_f := get_formula_raw_level()
+		if not sync_breakthrough_enabled:
+			return raw_f
+		return _apply_sync_gate_to_effective(raw_f)
 @export var experience: float = 0.0:
 	set = _on_experience_set
 @export var current_health: float = 0.0:
@@ -62,11 +76,19 @@ var current_critical_rate: float = 0.05
 var current_critical_damage: float = 1.50
 var current_evasion: float = 0.05
 
-# 场景伤害抗性（0.0~1.0，从 API 加载，对应 Hazard.HazardType）
+# 场景伤害抗性（0.0~1.0）：基础值来自存档/API，recalculate 中叠加基因后再写入 fire_resistance 等
+var base_fire_resistance: float = 0.0
+var base_poison_resistance: float = 0.0
+var base_thorns_resistance: float = 0.0
+var base_other_resistance: float = 0.0
 var fire_resistance: float = 0.0
 var poison_resistance: float = 0.0
 var thorns_resistance: float = 0.0
 var other_resistance: float = 0.0
+
+## 基因：固定值减伤（每击）、受击后按伤害比例回复（水螅等）
+var gene_damage_reduction_flat: float = 0.0
+var gene_on_hit_regen_pct: float = 0.0
 
 enum BuffableStats {
 	ATTACK,
@@ -145,8 +167,16 @@ func apply_crit_multiplier(damage: float) -> float:
 	return damage * current_critical_damage
 
 
-func process_effects(_delta: float) -> void:
-	pass
+func process_effects(delta: float) -> void:
+	if not level_derived_from_experience:
+		return
+	var regen := float(GeneManager.get_bonuses().get("health_regen_per_sec", 0.0))
+	if regen <= 0.0 or delta <= 0.0:
+		return
+	var amt := regen * delta
+	if amt < 1e-6:
+		return
+	heal(amt)
 
 
 func _on_health_set(new_value: float) -> void:
@@ -160,18 +190,76 @@ func get_raw_level() -> int:
 	return _compute_raw_level()
 
 
+## 公式等级并应用 max_level（不含 SYNC 门闸）；基因/调试可用
+func get_formula_raw_level() -> int:
+	var r := _compute_raw_level()
+	if max_level > 0:
+		return mini(r, max_level)
+	return r
+
+
+func _sync_gate_levels_sorted() -> Array[int]:
+	if sync_breakthrough_gate_levels.is_empty():
+		return DEFAULT_SYNC_BREAKTHROUGH_GATES.duplicate()
+	var out: Array[int] = []
+	for x in sync_breakthrough_gate_levels:
+		out.append(int(x))
+	out.sort()
+	return out
+
+
+func _sync_first_pending_gate() -> int:
+	var done := {}
+	for x in sync_breakthroughs_completed:
+		done[int(x)] = true
+	for g in _sync_gate_levels_sorted():
+		if max_level > 0 and g > max_level:
+			break
+		if not done.has(g):
+			return g
+	return -1
+
+
+func _apply_sync_gate_to_effective(raw: int) -> int:
+	var g := _sync_first_pending_gate()
+	if g < 0:
+		return raw
+	if raw >= g:
+		return mini(raw, g - 1)
+	return raw
+
+
+func _max_total_experience_allowed_for(candidate: float) -> float:
+	var cap_level := _experience_cap_for_max_level()
+	if not level_derived_from_experience or not sync_breakthrough_enabled:
+		return cap_level
+	var g := _sync_first_pending_gate()
+	if g < 0:
+		return cap_level
+	var b := maxf(base_exp_to_next_level, 0.001)
+	var raw := int(floor(max(1.0, sqrt(maxf(0.0, candidate) / b) + 0.5)))
+	if max_level > 0:
+		raw = mini(raw, max_level)
+	if raw < g - 1:
+		return cap_level
+	var gate_cap = pow(float(g) - 0.5, 2.0) * b - 0.01
+	return minf(cap_level, gate_cap)
+
+
 func get_level_experience_segment() -> Vector2:
 	if not level_derived_from_experience:
 		return Vector2(0.0, 1.0)
-	var experience_denominator_safe := maxf(base_exp_to_next_level, 0.001)
+	var b := maxf(base_exp_to_next_level, 0.001)
 	var display_level := level
+	var hi_cap := _max_total_experience_allowed_for(experience)
 	if display_level <= 1:
-		var upper_bound_level_one := pow(1.5, 2.0) * experience_denominator_safe
-		return Vector2(0.0, upper_bound_level_one)
-	var segment_lower_bound := pow(float(display_level) - 0.5, 2.0) * experience_denominator_safe
-	var segment_upper_bound := pow(float(display_level) + 0.5, 2.0) * experience_denominator_safe
+		var upper_bound_level_one := pow(1.5, 2.0) * b
+		return Vector2(0.0, minf(upper_bound_level_one, hi_cap))
+	var segment_lower_bound := pow(float(display_level) - 0.5, 2.0) * b
+	var segment_upper_bound := pow(float(display_level) + 0.5, 2.0) * b
 	if max_level > 0 and display_level >= max_level:
 		segment_upper_bound = _experience_cap_for_max_level()
+	segment_upper_bound = minf(segment_upper_bound, hi_cap)
 	return Vector2(segment_lower_bound, maxf(segment_upper_bound, segment_lower_bound + 1e-6))
 
 
@@ -194,6 +282,7 @@ func _on_experience_set(new_value: float) -> void:
 		return
 	var previous_level: int = level
 	var clamped_experience := maxf(0.0, new_value)
+	clamped_experience = minf(clamped_experience, _max_total_experience_allowed_for(clamped_experience))
 	if max_level > 0:
 		clamped_experience = minf(clamped_experience, _experience_cap_for_max_level())
 	experience = clamped_experience
@@ -231,12 +320,52 @@ func recalculate_stats() -> void:
 	current_evasion = base_evasion
 
 	var gene_bonuses: Dictionary = GeneManager.get_bonuses()
+	gene_damage_reduction_flat = float(gene_bonuses.get("damage_reduction_flat", 0.0))
+	gene_on_hit_regen_pct = float(gene_bonuses.get("on_hit_regen_pct_of_damage", 0.0))
+
 	current_max_health += float(gene_bonuses.get("max_health_bonus", 0))
 	current_attack += float(gene_bonuses.get("attack_bonus", 0))
 	current_defense += float(gene_bonuses.get("defense_bonus", 0))
 	current_critical_rate += float(gene_bonuses.get("crit_rate_bonus", 0.0))
 	current_critical_damage += float(gene_bonuses.get("crit_damage_bonus", 0.0))
 	current_evasion += float(gene_bonuses.get("evasion_bonus", 0.0))
+
+	var qs := float(gene_bonuses.get("quantum_shared_stat_ratio", 0.0))
+	if qs > 0.0:
+		var share := minf(current_critical_rate, current_evasion) * qs
+		current_critical_rate += share
+		current_evasion += share
+
+	fire_resistance = clampf(base_fire_resistance + float(gene_bonuses.get("fire_resistance_bonus", 0.0)), 0.0, 1.0)
+	poison_resistance = clampf(base_poison_resistance + float(gene_bonuses.get("poison_resistance_bonus", 0.0)), 0.0, 1.0)
+	thorns_resistance = clampf(base_thorns_resistance + float(gene_bonuses.get("thorns_resistance_bonus", 0.0)), 0.0, 1.0)
+	other_resistance = clampf(base_other_resistance + float(gene_bonuses.get("other_resistance_bonus", 0.0)), 0.0, 1.0)
+
+	var hp_ratio := 1.0 if current_max_health <= 0.0 else clampf(current_health / current_max_health, 0.0, 1.0)
+	var missing := clampf(1.0 - hp_ratio, 0.0, 1.0)
+	var deciles: int = mini(10, int(floor(missing * 10.0)))
+	var lad := float(gene_bonuses.get("low_hp_attack_bonus_per_decile", 0.0))
+	var ldp := float(gene_bonuses.get("low_hp_defense_penalty_per_decile", 0.0))
+	if deciles > 0 and (lad > 0.0 or ldp > 0.0):
+		current_attack *= 1.0 + lad * float(deciles)
+		current_defense *= maxf(1.0 - ldp * float(deciles), 0.2)
+
+	var lthresh := float(gene_bonuses.get("low_hp_threshold", 0.0))
+	if lthresh > 0.0 and hp_ratio < lthresh:
+		current_defense += float(gene_bonuses.get("low_hp_defense_bonus", 0.0))
+		var lam := float(gene_bonuses.get("low_hp_all_stats_mult", 0.0))
+		if lam > 0.0:
+			current_attack *= 1.0 + lam
+			current_defense *= 1.0 + lam
+			current_max_health *= 1.0 + lam
+
+	var lbp := float(gene_bonuses.get("low_hp_bonus_per_missing_hp_pct", 0.0))
+	if lbp > 0.0:
+		var miss_pct := (1.0 - hp_ratio) * 100.0
+		var extra := 1.0 + lbp * miss_pct
+		current_attack *= extra
+		current_defense *= extra
+		current_max_health *= extra
 
 	for stat_key in stat_multipliers:
 		var current_property_name: String = "current_" + stat_key
@@ -264,6 +393,12 @@ func roll_critical() -> bool:
 	return randf() < current_critical_rate
 
 
+## 基因冷却缩短（Skill.get_cooldown 使用）
+func get_skill_cooldown_multiplier() -> float:
+	var cdr := float(GeneManager.get_bonuses().get("cooldown_reduction", 0.0))
+	return maxf(1.0 - cdr, 0.15)
+
+
 func take_damage(attack_data: AttackData) -> void:
 	if attack_data == null:
 		push_error("Stats: 收到空的 AttackData")
@@ -286,6 +421,8 @@ func take_damage(attack_data: AttackData) -> void:
 	print("   倍率后伤害: %.1f" % scaled_damage)
 
 	var damage_after_defense: float = max(scaled_damage - current_defense, 0.0)
+	if gene_damage_reduction_flat > 0.0:
+		damage_after_defense = maxf(damage_after_defense - gene_damage_reduction_flat, 0.0)
 	if attack_data.source == AttackData.AttackType.HAZARD:
 		var hazard_resistance_value: float = _get_hazard_resistance(attack_data.hazard_sub_type)
 		damage_after_defense = damage_after_defense * (1.0 - clampf(hazard_resistance_value, 0.0, 1.0))
@@ -296,6 +433,11 @@ func take_damage(attack_data: AttackData) -> void:
 	print("   最终伤害: %.1f" % damage_after_defense)
 
 	current_health = clampf(current_health - damage_after_defense, 0.0, current_max_health)
+
+	if level_derived_from_experience and gene_on_hit_regen_pct > 0.0 and damage_after_defense > 0.0:
+		var regen_amt := damage_after_defense * gene_on_hit_regen_pct
+		if regen_amt > 1e-4:
+			current_health = clampf(current_health + regen_amt, 0.0, current_max_health)
 
 	health_changed.emit(current_health, current_max_health)
 
@@ -327,12 +469,123 @@ func gain_experience(experience_amount: float) -> float:
 		return 0.0
 	if experience_amount <= 0.0:
 		return 0.0
+	var mult := 1.0 + float(GeneManager.get_bonuses().get("experience_gain_bonus", 0.0))
+	experience_amount *= mult
 	var total_experience_before := experience
 	experience = experience + experience_amount
 	var experience_actually_gained := experience - total_experience_before
 	if experience_actually_gained > 0.0:
 		print("%s 获得 %.1f 经验值 (当前等级 %d, 总经验 %.0f)" % [str(self), experience_actually_gained, level, experience])
+		experience_gained.emit(experience_actually_gained)
 	return experience_actually_gained
+
+
+## 统一入口：任务/击杀等应调用本方法，便于 `source_key` 调试日志（仍走 `gain_experience` 与封顶）
+func grant_experience_from_source(base_amount: float, source_key: String = "") -> float:
+	var g := gain_experience(base_amount)
+	if not source_key.is_empty() and g > 1e-6:
+		print("[Stats][EXP] source=%s gained=%.2f" % [source_key, g])
+	return g
+
+
+## 供 `ExperienceRewards` 等扩展：统一走 Stats，未来可按 source 挂表倍率
+func grant_experience_from_source_ctx(base_amount: float, source_key: String, _ctx: Dictionary = {}) -> float:
+	return grant_experience_from_source(base_amount, source_key)
+
+
+func _get_breakthrough_cost_entries(gate_level: int) -> Array:
+	if sync_breakthrough_costs.has(gate_level):
+		var v: Variant = sync_breakthrough_costs[gate_level]
+		return v if v is Array else []
+	var ks := str(gate_level)
+	if sync_breakthrough_costs.has(ks):
+		var v2: Variant = sync_breakthrough_costs[ks]
+		return v2 if v2 is Array else []
+	return []
+
+
+func _has_breakthrough_materials(gate_level: int) -> bool:
+	var entries := _get_breakthrough_cost_entries(gate_level)
+	if entries.is_empty():
+		return true
+	if InventoryManager == null:
+		return false
+	for e in entries:
+		if not e is Dictionary:
+			continue
+		var iid := int(e.get("item_id", 0))
+		var q := int(e.get("quantity", 0))
+		if iid <= 0 or q <= 0:
+			continue
+		if not InventoryManager.has_item(str(iid), q):
+			return false
+	return true
+
+
+func _consume_breakthrough_materials(gate_level: int) -> bool:
+	var entries := _get_breakthrough_cost_entries(gate_level)
+	if entries.is_empty():
+		return true
+	if InventoryManager == null:
+		return false
+	if not _has_breakthrough_materials(gate_level):
+		return false
+	for e in entries:
+		if not e is Dictionary:
+			continue
+		var iid := int(e.get("item_id", 0))
+		var q := int(e.get("quantity", 0))
+		if iid <= 0 or q <= 0:
+			continue
+		if not InventoryManager.try_consume_numeric_item_id(iid, q):
+			return false
+	return true
+
+
+func is_at_sync_experience_cap() -> bool:
+	if not sync_breakthrough_enabled or not level_derived_from_experience:
+		return false
+	if _sync_first_pending_gate() < 0:
+		return false
+	var m := _max_total_experience_allowed_for(experience)
+	return experience >= m - 0.25
+
+
+func is_sync_breakthrough_available() -> bool:
+	if not sync_breakthrough_enabled or not level_derived_from_experience:
+		return false
+	var g := _sync_first_pending_gate()
+	if g < 0:
+		return false
+	return is_at_sync_experience_cap() and _has_breakthrough_materials(g)
+
+
+func get_next_sync_breakthrough_gate() -> int:
+	return _sync_first_pending_gate()
+
+
+## 返回空字符串表示成功；否则为可读失败原因
+func attempt_sync_breakthrough_for_next_gate() -> String:
+	if not level_derived_from_experience:
+		return "当前角色不使用经验等级"
+	if not sync_breakthrough_enabled:
+		return "未启用 SYNC 突破"
+	var g := _sync_first_pending_gate()
+	if g < 0:
+		return "当前无需突破"
+	if not is_at_sync_experience_cap():
+		return "尚未达到本阶段经验上限"
+	if not _consume_breakthrough_materials(g):
+		return "突破材料不足"
+	sync_breakthroughs_completed.append(g)
+	sync_breakthroughs_completed.sort()
+	var b := maxf(base_exp_to_next_level, 0.001)
+	var target_exp := pow(float(g) - 0.5, 2.0) * b
+	experience = maxf(experience, target_exp)
+	sync_breakthrough_succeeded.emit(g)
+	if CharacterDataManager and CharacterDataManager.has_method("refresh_inventory_from_api"):
+		CharacterDataManager.refresh_inventory_from_api()
+	return ""
 
 
 func apply_attack_data(attack_data: AttackData) -> void:
@@ -348,11 +601,13 @@ func save_to_dict() -> Dictionary:
 		"critical_rate": snappedf(base_critical_rate, 0.0001),
 		"critical_damage": snappedf(base_critical_damage, 0.0001),
 		"evasion": snappedf(base_evasion, 0.0001),
+		"gene_points": GeneManager.gene_points,
 		"experience": snappedf(experience, 0.01),
-		"fire_resistance": snappedf(fire_resistance, 0.0001),
-		"poison_resistance": snappedf(poison_resistance, 0.0001),
-		"thorns_resistance": snappedf(thorns_resistance, 0.0001),
-		"other_resistance": snappedf(other_resistance, 0.0001),
+		"fire_resistance": snappedf(base_fire_resistance, 0.0001),
+		"poison_resistance": snappedf(base_poison_resistance, 0.0001),
+		"thorns_resistance": snappedf(base_thorns_resistance, 0.0001),
+		"other_resistance": snappedf(base_other_resistance, 0.0001),
+		"sync_breakthroughs_completed": sync_breakthroughs_completed.duplicate(),
 	}
 
 
@@ -371,15 +626,23 @@ func load_from_dict(serialized_stats: Dictionary) -> void:
 	base_critical_rate = float(stats_payload.get("critical_rate", 0.05))
 	base_critical_damage = float(stats_payload.get("critical_damage", 1.50))
 	base_evasion = float(stats_payload.get("evasion", 0.05))
+	sync_breakthroughs_completed.clear()
+	var sb: Variant = stats_payload.get("sync_breakthroughs_completed", [])
+	if sb is Array:
+		for x in sb:
+			sync_breakthroughs_completed.append(int(x))
+		sync_breakthroughs_completed.sort()
 	if level_derived_from_experience:
 		_mute_level_up_signal = true
 		experience = maxf(0.0, float(stats_payload.get("experience", 0.0)))
 		_mute_level_up_signal = false
 	else:
 		experience = 0.0
-	fire_resistance = clampf(float(stats_payload.get("fire_resistance", 0.0)), 0.0, 1.0)
-	poison_resistance = clampf(float(stats_payload.get("poison_resistance", 0.0)), 0.0, 1.0)
-	thorns_resistance = clampf(float(stats_payload.get("thorns_resistance", 0.0)), 0.0, 1.0)
-	other_resistance = clampf(float(stats_payload.get("other_resistance", 0.0)), 0.0, 1.0)
+	base_fire_resistance = clampf(float(stats_payload.get("fire_resistance", 0.0)), 0.0, 1.0)
+	base_poison_resistance = clampf(float(stats_payload.get("poison_resistance", 0.0)), 0.0, 1.0)
+	base_thorns_resistance = clampf(float(stats_payload.get("thorns_resistance", 0.0)), 0.0, 1.0)
+	base_other_resistance = clampf(float(stats_payload.get("other_resistance", 0.0)), 0.0, 1.0)
+	var gp := int(stats_payload.get("gene_points", 0))
+	GeneManager.set_gene_points(maxi(gp, 0))
 	recalculate_stats()
 	current_health = clampf(loaded_current_health, 0.0, current_max_health)

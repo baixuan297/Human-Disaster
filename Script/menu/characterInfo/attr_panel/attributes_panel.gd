@@ -115,6 +115,8 @@ func _bind_stats_signals(stats: Stats) -> void:
 		stats.experience_changed.connect(_on_player_experience_changed)
 	if not stats.health_changed.is_connected(_on_player_health_changed):
 		stats.health_changed.connect(_on_player_health_changed)
+	if not stats.sync_breakthrough_succeeded.is_connected(_on_sync_breakthrough_succeeded):
+		stats.sync_breakthrough_succeeded.connect(_on_sync_breakthrough_succeeded)
 
 
 func _unbind_stats_signals() -> void:
@@ -124,7 +126,14 @@ func _unbind_stats_signals() -> void:
 		_signals_bound_stats.experience_changed.disconnect(_on_player_experience_changed)
 	if _signals_bound_stats.health_changed.is_connected(_on_player_health_changed):
 		_signals_bound_stats.health_changed.disconnect(_on_player_health_changed)
+	if _signals_bound_stats.sync_breakthrough_succeeded.is_connected(_on_sync_breakthrough_succeeded):
+		_signals_bound_stats.sync_breakthrough_succeeded.disconnect(_on_sync_breakthrough_succeeded)
 	_signals_bound_stats = null
+
+
+func _on_sync_breakthrough_succeeded(_gate_level: int) -> void:
+	if visible:
+		_refresh_all()
 
 
 func _refresh_all() -> void:
@@ -259,10 +268,20 @@ func _refresh_abstract_and_desc(stats: Stats) -> void:
 	var character_level := stats.level
 	var tier := _sync_tier_from_level(character_level)
 	var next_brk := _next_breakthrough_level(character_level)
-	if character_level > 0 and character_level % LEVELS_PER_SYNC_TIER == 0:
-		_desc.text = "已到达 SYNC-%d 阶段边界。可进行同步突破以稳固意识链接，并解锁更高同步层级。" % tier
-		_upgrade_btn.disabled = false
-		_upgrade_btn.text = "突破"
+	var ng := stats.get_next_sync_breakthrough_gate()
+	if ng > 0:
+		if stats.is_sync_breakthrough_available():
+			_desc.text = "已到达 SYNC-%d 阶段边界。可进行同步突破以稳固意识链接，并解锁更高同步层级。" % ng
+			_upgrade_btn.disabled = false
+			_upgrade_btn.text = "突破"
+		elif stats.is_at_sync_experience_cap():
+			_desc.text = "已达到门槛等级 %d 的经验上限，需补充突破材料。" % ng
+			_upgrade_btn.disabled = true
+			_upgrade_btn.text = "突破"
+		else:
+			_desc.text = "当前同步层级：SYNC-%d。达到门槛等级 %d 并攒满该段经验后可突破。" % [tier, ng]
+			_upgrade_btn.disabled = true
+			_upgrade_btn.text = "突破"
 	else:
 		_desc.text = "当前同步层级：SYNC-%d。下一建议突破等级：%d。" % [tier, next_brk]
 		_upgrade_btn.disabled = true
@@ -270,6 +289,12 @@ func _refresh_abstract_and_desc(stats: Stats) -> void:
 
 
 func _on_upgrade_button_pressed() -> void:
-	## 占位：后续可接突破流程（任务 / 消耗 / API）
-	print("[AttributesPanel] 突破按钮（待接游戏逻辑），当前仅刷新显示")
+	var stats := _get_stats()
+	if stats and stats.has_method("attempt_sync_breakthrough_for_next_gate"):
+		var err: String = stats.attempt_sync_breakthrough_for_next_gate()
+		if err.is_empty():
+			GBMssage.show_message("同步突破成功", "success")
+			CharacterDataManager.save_to_api(Callable(), true)
+		else:
+			GBMssage.show_message(err, "warning")
 	_refresh_all()

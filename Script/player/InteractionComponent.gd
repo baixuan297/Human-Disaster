@@ -66,7 +66,7 @@ func on_interact_pressed() -> void:
 		return
 
 	if collider.is_in_group("chest"):
-		GameItemIds.grant_standard_test_bundle(InventoryManager)
+		InventoryManager.grant_standard_test_bundle()
 		return
 
 	# 未命中上述交互对象时，尝试用 pickray 拾取 RigidBody

@@ -184,6 +184,7 @@ func _apply_damage_to(target: Node) -> void:
 		var attack := AttackData.create_weapon_attack(_weapon_data, _shooter)
 		# 暴击后的伤害写入 base_damage，EnemyBodyPart.apply_body_part_multiplier 会据此计算 final_damage
 		attack.base_damage = dmg
+		attack.is_critical = is_crit
 
 		target.enemy_hit(attack)
 

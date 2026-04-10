@@ -1,5 +1,13 @@
 extends Node
 
+## 演示用：`item_id` 与 `StarshipBackend/PSQL_DH/game_data/items.json` 一致（勿用旧版 201–253 等）。
+const _STAR_COIN := 1001013
+const _TOOL_LAB_KEY := 1000004
+const _TOOL_KEYCARD_B7 := 1000005
+const _TOOL_RENAME := 1000006
+const _POTION_NEURO := 1011005
+const _POTION_RAD := 1011006
+
 @onready var inventory_ui: InventoryUI
 
 var inventory: Node
@@ -38,7 +46,7 @@ func use_material(item: InventoryItem) -> void:
 	if not item or not item.data:
 		return
 	var id := item.data.id
-	if id == str(GameItemIds.MATERIAL_STAR_COIN):
+	if id == str(_STAR_COIN):
 		show_message("星币需在商店/终端消费，不能直接使用")
 	else:
 		show_message("使用了: " + item.data.name)
@@ -48,11 +56,11 @@ func use_tool(item: InventoryItem) -> void:
 	if not item or not item.data:
 		return
 	var id := item.data.id
-	if id == str(GameItemIds.TOOL_LAB_KEY):
+	if id == str(_TOOL_LAB_KEY):
 		show_message("实验室合金钥匙：关卡脚本可接 metadata.unlock_hint: lab_biochem_wing")
-	elif id == str(GameItemIds.TOOL_KEYCARD_B7):
+	elif id == str(_TOOL_KEYCARD_B7):
 		show_message("已验证 B-7 区门禁权限（关卡可接 unlock_hint: sector_b7_doors）")
-	elif id == str(GameItemIds.TOOL_RENAME_TOKEN):
+	elif id == str(_TOOL_RENAME):
 		show_message("身份重编码券：接改名流程，成功后由逻辑扣减 1 张")
 	else:
 		show_message("使用工具: " + item.data.name)
@@ -64,9 +72,9 @@ func use_potion(item: InventoryItem) -> void:
 	if not item or not item.data:
 		return
 	var id := item.data.id
-	if id == str(GameItemIds.POTION_NEURO_CALM):
+	if id == str(_POTION_NEURO):
 		show_message("使用神经镇静合剂（生命/防御 buff 见 items.json metadata）")
-	elif id == str(GameItemIds.POTION_RAD_CHELATE):
+	elif id == str(_POTION_RAD):
 		show_message("使用螯合抗辐碘剂（辐射耐受 buff 见 items.json metadata）")
 	else:
 		show_message("使用药水: " + item.data.name)
@@ -85,4 +93,5 @@ func has_item_by_string_id(item_id: String, quantity: int = 1) -> bool:
 	return InventoryManager.has_item(item_id, quantity)
 
 func _on_button_pressed() -> void:
-	GameItemIds.grant_standard_test_bundle(inventory)
+	if inventory:
+		inventory.grant_standard_test_bundle()

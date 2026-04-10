@@ -121,6 +121,14 @@ func _execute_instant_skill(target_position: Vector3, target_node: Node3D) -> vo
 		attack.final_damage  = caster_stats.apply_crit_multiplier(attack.final_damage)
 		attack.is_critical   = true
 
+	if caster_stats and target_node.has_method("get_combat_tags"):
+		var tags: Array = target_node.get_combat_tags()
+		attack.final_damage = GeneManager.apply_outgoing_damage_vs_tags(attack.final_damage, tags)
+	if attack.is_critical and caster_stats:
+		var ts_inst := _get_target_stats(target_node)
+		if ts_inst:
+			attack.final_damage += GeneManager.get_crit_bonus_damage_from_target_current_hp(ts_inst.current_health)
+
 	if target_node.has_method("apply_attack_data"):
 		target_node.apply_attack_data(attack)
 	elif target_node.has_method("take_damage"):
@@ -293,7 +301,12 @@ func _play_effects() -> void:
 
 func get_damage()       -> float: return skill_resource.get_damage(current_level)
 func get_attack_power() -> float: return skill_resource.get_attack_power(current_level)
-func get_cooldown()     -> float: return skill_resource.get_cooldown(current_level)
+func get_cooldown() -> float:
+	var base_cd: float = skill_resource.get_cooldown(current_level)
+	var owner_stats := _get_owner_stats()
+	if owner_stats and owner_stats.has_method("get_skill_cooldown_multiplier"):
+		return base_cd * owner_stats.get_skill_cooldown_multiplier()
+	return base_cd
 func get_range()        -> float: return skill_resource.get_range(current_level)
 func get_duration()     -> float: return skill_resource.get_duration(current_level)
 

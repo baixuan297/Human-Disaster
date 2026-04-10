@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="KeyBindResource" load_steps=13 format=3 uid="uid://cny6q5wwsdtk6"]
+[gd_resource type="Resource" script_class="KeyBindResource" format=3 uid="uid://cny6q5wwsdtk6"]
 
 [ext_resource type="Script" uid="uid://kf1ylwvbw2of" path="res://resource/settings/KeyBindResource.gd" id="1_4xhed"]
 

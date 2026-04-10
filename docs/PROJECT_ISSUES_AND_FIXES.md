@@ -109,23 +109,23 @@
 | 项目 | 说明 |
 |------|------|
 | **结论** | `Stats.save_to_dict()` 与 `CharacterStatsSaveRequest` / `CharacterStatsResponse` / `game.character_stats` 一致；**等级不单独入库**，仅 **`experience`**，等级由客户端公式 + `max_level` 推导。 |
-| **迁移** | `experience`、抗性、`loadout`、`scene_state` 等见 `migrations/run_all_pending.sql` 及 `005`、`006`。 |
-| **注意** | `DesastreHuman.sql` 基表 `CREATE character_stats` 可能不含上述列，需以迁移为准；已在 SQL 文件注释中说明。 |
+| **基线** | `experience`、抗性、`loadout`、`scene_state` 等均已在 **`StarshipBackend/PSQL_DH/DesastreHuman.sql`** 中定义；部署为**空库一次性**执行该脚本，已有库升级另写增量或重建。 |
+| **注意** | `game.character_stats` 列与枚举与 `models.py` 一致；不再维护 `migrations/*.sql` 分文件。 |
 | **未使用** | `game.character_progress`（含 level/experience）当前 **未** 在 `main.py` / ORM 中接入，与现 Godot 存档链路无关。 |
 
 ### 4.2 全链路对齐核对（数据库 ↔ ORM ↔ API ↔ Godot，2026-03-30）
 
-以下为**静态对照**结论：部署库需执行 `StarshipBackend/PSQL_DH/migrations/run_all_pending.sql`（或按序号 `003`～`006`），使 `game.character_stats` 等表结构与 `models.py` 一致。
+以下为**静态对照**结论：部署库需执行 **`StarshipBackend/PSQL_DH/DesastreHuman.sql`**（或确保库结构与其一致），使 `game.character_stats` 等表结构与 `models.py` 一致。
 
 #### `game.character_stats`（属性 + loadout + scene_state JSON）
 
 | 列 / JSON 字段 | SQLAlchemy `CharacterStats` | Pydantic `CharacterStatsSaveRequest` / `CharacterStatsResponse` | Godot |
 |----------------|----------------------------|------------------------------------------------------------------|--------|
 | `max_health` … `evasion` | ✓ | ✓ | `Stats.save_to_dict()` / `load_from_dict()` 键名一致 |
-| `experience` | ✓（迁移 `005`） | ✓ | `Stats.experience`；**等级不入库**，客户端由公式 + `max_level` 推导（与 §2 一致） |
-| `fire_resistance` … `other_resistance` | ✓（迁移 `006`，对应 `Hazard.HazardType` 0～3） | ✓ | `Stats.fire_resistance` 等，`load_from_dict` 已 `clampf` 0～1 |
-| `loadout`（JSONB） | ✓（迁移 `003`） | Save 可选；GET stats 返回 | `CharacterDataManager` 合并 `WeaponManager.get_serializable_loadout()` 后 POST |
-| `scene_state`（JSONB） | ✓（迁移 `004`） | 仅 **SaveRequest**；**GET `/stats` 响应体不含** `scene_state` | 登录后 **`load_scene_state`** 拉取；`save_to_api` 将 `scene_state` **合并进同一次** `save_stats` POST，避免覆盖 loadout（与 `main.py` 注释一致） |
+| `experience` | ✓（基线 `DesastreHuman.sql`） | ✓ | `Stats.experience`；**等级不入库**，客户端由公式 + `max_level` 推导（与 §2 一致） |
+| `fire_resistance` … `other_resistance` | ✓（基线，对应 `Hazard.HazardType` 0～3） | ✓ | `Stats.fire_resistance` 等，`load_from_dict` 已 `clampf` 0～1 |
+| `loadout`（JSONB） | ✓（基线） | Save 可选；GET stats 返回 | `CharacterDataManager` 合并 `WeaponManager.get_serializable_loadout()` 后 POST |
+| `scene_state`（JSONB） | ✓（基线） | 仅 **SaveRequest**；**GET `/stats` 响应体不含** `scene_state` | 登录后 **`load_scene_state`** 拉取；`save_to_api` 将 `scene_state` **合并进同一次** `save_stats` POST，避免覆盖 loadout（与 `main.py` 注释一致） |
 
 #### 其他角色相关接口
 
@@ -140,7 +140,7 @@
 
 | 项 | 说明 |
 |----|------|
-| **迁移** | 新环境必须先跑迁移再启动 FastAPI，否则缺列会导致读写失败。 |
+| **基线** | 新环境必须先执行 `DesastreHuman.sql`（或等价结构）再启动 FastAPI，否则缺列会导致读写失败。 |
 | **联调** | 使用 `test/api_test.tscn` / `test/api_test.gd` 与 `docs/APIManager.md` 中的路径对照；`ApiManager.API_BASE_URL` 需指向实际后端。 |
 
 ---
@@ -276,7 +276,7 @@
 
 - [ ] 全库 `docs/**/*.md` 再搜一遍 `test/`：除 `test/api_test.gd`、`test/unit/` 等**真实位于 test 目录**的引用外，一律改为实际 `Script/`、`resource/`、`autoload/` 路径。
 - [ ] 若启用后端 `game.character_progress` 或与 §4「未使用」不一致，更新 **§4**、**§4.2**、`APIManager.md`、`CharacterDataManager.md` 与迁移说明。
-- [ ] 新服务器部署后执行一次 `migrations/run_all_pending.sql`，并在 §6 记录环境/日期（与 §4.2 部署提醒一致）。
+- [ ] 新服务器部署后执行一次 **`StarshipBackend/PSQL_DH/DesastreHuman.sql`**（或确认库已与其一致），并在 §6 记录环境/日期（与 §4.2 部署提醒一致）。
 - [ ] 第三人称相机 / 背包遮挡若仍有产品级问题，在 **§7.3** 或 `PLAYER_CAMERA_AND_MOVEMENT.md` 补「复现步骤 + 当前结论」。
 - [ ] 联机（Nakama）若重新立项，为 `Script/Multiplayer/` 单独写一页「现状 vs 废弃」以免与 `login_scene.gd` 混淆。
 
