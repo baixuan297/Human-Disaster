@@ -8,7 +8,7 @@ extends Node
 ##   3. **架构一致**：走真实 APIManager.make_request 与各封装方法（register/login/load_* / save_*），与游戏内
 ##   CharacterDataManager、GameDataManager 使用同一入口，避免「脚本直连 URL」与游戏逻辑脱节。
 ##
-## 流程概览：注册 → 登录 → /me → 角色列表 → 背包/技能/属性/场景状态/基因 → 静态 game-data → 验证码相关接口
+## 流程概览：注册 → 登录 → /me → 角色列表 → 背包/技能/属性/基因（含 unlock 契约）→ 静态 game-data → 验证码相关接口
 ##
 ## 端口：本测试经 APIManager.API_BASE_URL 访问 **FastAPI :8000**（游戏存档/角色等）。
 ## Spring Boot 社区 API 为 **:8080**，不在此脚本覆盖范围内。
@@ -22,7 +22,7 @@ const TEST_USER = "api_test_user"
 const TEST_PASS = "api_test_pass_123"
 const TEST_EMAIL = "api_test@example.com"
 ## 控制台步骤编号上限（与下方各 _test_* 打印一致）
-const _STEP_TOTAL := 17
+const _STEP_TOTAL := 18
 
 const _BANNER := "════════════════════════════════════════"
 
@@ -212,7 +212,8 @@ func _test_save_stats() -> void:
 		"critical_rate": 0.05,
 		"critical_damage": 1.5,
 		"evasion": 0.05,
-		"experience": 0.0,
+		"gene_points": 100,
+		"experience": 50000.0,
 	}
 	ApiManager.save_stats(cid, stats_dict, func(success, resp):
 		if success:
@@ -233,8 +234,36 @@ func _test_load_genes() -> void:
 			var genes: Variant = resp.get("genes", [])
 			var count: int = genes.size() if genes is Array else 0
 			print("  ✅ 加载基因: %d 条" % count)
+			if resp.has("gene_modules"):
+				var gm: Variant = resp.get("gene_modules", [])
+				var gmc: int = gm.size() if gm is Array else 0
+				print("  ✅ 响应含 gene_modules: %d 条" % gmc)
+			else:
+				print("  ❌ 响应缺少 gene_modules 键")
 		else:
 			print("  ❌ 加载基因失败:", resp)
+		_test_gene_unlock_via_api()
+	)
+
+
+func _test_gene_unlock_via_api() -> void:
+	var cid := _require_cid()
+	if cid.is_empty():
+		return
+	_log_step("10a", "POST /characters/%s/genes/unlock (2001001)" % cid)
+	ApiManager.unlock_gene(cid, 2001001, func(success, resp):
+		if not success:
+			var msg: Variant = resp.get("message", resp) if resp is Dictionary else resp
+			print("  ⚠ 解锁基因跳过/失败（可能已解锁或未 seed）:", msg)
+			_test_save_genes()
+			return
+		if resp is Dictionary:
+			if bool(resp.get("is_active", true)) == false:
+				print("  ✅ 解锁后 is_active=false（与 Godot 一致）")
+			else:
+				print("  ⚠ is_active 期望 false，实际: %s" % str(resp.get("is_active")))
+			if resp.has("gene_points"):
+				print("  ✅ 响应含 gene_points=%s" % str(resp.get("gene_points")))
 		_test_save_genes()
 	)
 
@@ -244,9 +273,9 @@ func _test_save_genes() -> void:
 	if cid.is_empty():
 		return
 	_log_step("10c", "POST /characters/%s/genes" % cid)
-	ApiManager.save_genes(cid, [], func(success, resp):
+	ApiManager.save_genes(cid, {"genes": []}, func(success, resp):
 		if success:
-			print("  ✅ 保存基因成功（空列表）")
+			print("  ✅ 保存基因成功（仅 genes:[]，不附带 gene_modules，避免误清空子基因）")
 		else:
 			print("  ❌ 保存基因失败:", resp)
 		_test_game_data_items()
@@ -283,8 +312,33 @@ func _test_game_data_genes() -> void:
 		if success:
 			var genes := _list_from_game_data(resp, "genes")
 			print("  ✅ 基因数据: %d 条" % genes.size())
+			if genes.size() > 0 and genes[0] is Dictionary:
+				var g0: Dictionary = genes[0]
+				if g0.has("sub_gene_limits"):
+					print("  ✅ 首条基因含 sub_gene_limits")
+				else:
+					print("  ⚠ 首条基因缺少 sub_gene_limits（请执行迁移+seeder）")
+				var mods: Variant = g0.get("modules", [])
+				if mods is Array and mods.size() > 0 and mods[0] is Dictionary:
+					var m0: Dictionary = mods[0]
+					if m0.has("line_id"):
+						print("  ✅ 首个子基因含 line_id=%s" % str(m0.get("line_id")))
+					else:
+						print("  ⚠ 首个子基因缺少 line_id")
 		else:
 			print("  ❌ 基因数据失败:", resp)
+		_test_game_data_enemies()
+	)
+
+
+func _test_game_data_enemies() -> void:
+	_log_step("13b", "GET /game-data/enemies (无需 token)")
+	ApiManager.get_game_data_enemies(func(success, resp):
+		if success:
+			var enemies := _list_from_game_data(resp, "enemies")
+			print("  ✅ 敌人数据: %d 条" % enemies.size())
+		else:
+			print("  ❌ 敌人数据失败:", resp)
 		_test_send_verification()
 	)
 

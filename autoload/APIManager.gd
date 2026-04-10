@@ -139,8 +139,8 @@ func create_character(char_name: String, server_id: int, character_class: String
 
 ## === 背包API（使用角色 ID） ===
 ##
-## slots 建议直接传 InventoryManager.get_serializable_inventory() 的结果：
-## [ { "id": 101, "qty": 3 }, null, { "id": 205, "qty": 1 }, ... ]
+## slots 建议直接传 InventoryManager.get_serializable_inventory() 的结果（`id` 为 **items.json item_id**，如 1003001）：
+## [ { "id": 1003001, "qty": 1 }, null, { "id": 1001013, "qty": 50 }, ... ]
 func save_inventory(character_id: String, slots: Array, callback: Callable = Callable()) -> void:
 	var data := {"slots": slots}
 	make_request("/characters/%s/inventory" % character_id, HTTPClient.METHOD_POST, data, callback)
@@ -181,8 +181,16 @@ func load_scene_state(character_id: String, callback: Callable) -> void:
 func load_genes(character_id: String, callback: Callable) -> void:
 	make_request("/characters/%s/genes" % character_id, HTTPClient.METHOD_GET, {}, callback)
 
-func save_genes(character_id: String, genes_list: Array, callback: Callable = Callable()) -> void:
-	var data := {"genes": genes_list}
+## payload：仅基因数组，或字典 { "genes": [], "gene_modules": [...] }；字典中省略 gene_modules 时服务端不改动子基因表
+func save_genes(character_id: String, payload: Variant, callback: Callable = Callable()) -> void:
+	var data: Dictionary
+	if payload is Dictionary:
+		data = (payload as Dictionary).duplicate(true)
+		if not data.has("genes"):
+			data["genes"] = []
+		# 不自动补 gene_modules：缺省时服务端不改动 character_gene_modules 表
+	else:
+		data = {"genes": payload}
 	make_request("/characters/%s/genes" % character_id, HTTPClient.METHOD_POST, data, callback)
 
 func unlock_gene(character_id: String, gene_id: int, callback: Callable = Callable()) -> void:
@@ -195,6 +203,12 @@ func toggle_gene(character_id: String, gene_id: int, is_active: bool, callback: 
 	var data := {"gene_id": gene_id, "is_active": is_active}
 	make_request("/characters/%s/genes/toggle" % character_id, HTTPClient.METHOD_POST, data, callback)
 
+func unlock_gene_module(character_id: String, module_id: int, callback: Callable = Callable()) -> void:
+	make_request("/characters/%s/gene-modules/unlock" % character_id, HTTPClient.METHOD_POST, {"module_id": module_id}, callback)
+
+func upgrade_gene_module(character_id: String, module_id: int, callback: Callable = Callable()) -> void:
+	make_request("/characters/%s/gene-modules/upgrade" % character_id, HTTPClient.METHOD_POST, {"module_id": module_id}, callback)
+
 ## === 静态游戏数据 API（GameDataManager 启动时拉取，无需 token） ===
 func get_game_data_items(callback: Callable) -> void:
 	make_request("/game-data/items", HTTPClient.METHOD_GET, {}, callback, false)
@@ -204,3 +218,6 @@ func get_game_data_skills(callback: Callable) -> void:
 
 func get_game_data_genes(callback: Callable) -> void:
 	make_request("/game-data/genes", HTTPClient.METHOD_GET, {}, callback, false)
+
+func get_game_data_enemies(callback: Callable) -> void:
+	make_request("/game-data/enemies", HTTPClient.METHOD_GET, {}, callback, false)

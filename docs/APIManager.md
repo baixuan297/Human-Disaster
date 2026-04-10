@@ -100,13 +100,15 @@ func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: D
 | `save_skills(character_id, skills_dict, callback)` | `/characters/{id}/skills` | POST | 保存技能 |
 | `load_skills(character_id, callback)` | `/characters/{id}/skills` | GET | 加载技能 |
 | `load_stats(character_id, callback)` | `/characters/{id}/stats` | GET | 加载角色属性 |
-| `save_stats(character_id, stats_dict, callback)` | `/characters/{id}/stats` | POST | 保存角色属性（含 `experience`、`loadout`、`scene_state` 等与后端 `CharacterStatsSaveRequest` 对齐的字段；`Stats.save_to_dict()` 已包含 `experience`） |
-| `load_genes(character_id, callback)` | `/characters/{id}/genes` | GET | 加载角色基因 |
-| `save_genes(character_id, genes_list, callback)` | `/characters/{id}/genes` | POST | 保存角色基因（全量） |
+| `save_stats(character_id, stats_dict, callback)` | `/characters/{id}/stats` | POST | 保存角色属性（含 `gene_points`、`experience`、`sync_breakthroughs_completed`、`loadout`、`scene_state`、四抗性等，与 `CharacterStatsSaveRequest` / `Stats.save_to_dict()` 对齐） |
+| `load_genes(character_id, callback)` | `/characters/{id}/genes` | GET | 加载角色基因（响应含 `genes` 与 `gene_modules`） |
+| `save_genes(character_id, payload, callback)` | `/characters/{id}/genes` | POST | 保存角色基因（`payload` 为 `{genes, gene_modules}` 或旧版仅 genes 数组） |
 | `save_scene_state(character_id, data, callback)` | `/characters/{id}/scene_state` | POST | 保存场景状态（`scene_path`, `position`, `rotation_y`；可选 `collected_pickables`，与 `SceneStateSaveRequest` 一致） |
 | `load_scene_state(character_id, callback)` | `/characters/{id}/scene_state` | GET | 加载场景状态（响应含 `collected_pickables` 数组，字符串 ID） |
-| `unlock_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/unlock` | POST | 解锁基因 |
-| `upgrade_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/upgrade` | POST | 升级基因 |
+| `unlock_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/unlock` | POST | 解锁基因（扣基因点；响应含 `gene_points` 余额） |
+| `upgrade_gene(character_id, gene_id, callback)` | `/characters/{id}/genes/upgrade` | POST | 升级基因（扣基因点；响应含 `gene_points`） |
+| `unlock_gene_module(character_id, module_id, callback)` | `/characters/{id}/gene-modules/unlock` | POST | 解锁子基因（扣点 + `unlock_materials`） |
+| `upgrade_gene_module(character_id, module_id, callback)` | `/characters/{id}/gene-modules/upgrade` | POST | 升级子基因（扣点 + 按级材料） |
 | `toggle_gene(character_id, gene_id, is_active, callback)` | `/characters/{id}/genes/toggle` | POST | 激活/停用基因 |
 
 ## 六、静态游戏数据 API（无需 token）
@@ -115,7 +117,8 @@ func make_request(endpoint: String, method: int = HTTPClient.METHOD_GET, data: D
 |------|------|------|------|
 | `get_game_data_items(callback)` | `/game-data/items` | GET | 获取物品静态数据 |
 | `get_game_data_skills(callback)` | `/game-data/skills` | GET | 获取技能静态数据 |
-| `get_game_data_genes(callback)` | `/game-data/genes` | GET | 获取基因静态数据 |
+| `get_game_data_genes(callback)` | `/game-data/genes` | GET | 获取基因静态数据（每条含 `modules[]` 子基因定义） |
+| `get_game_data_enemies(callback)` | `/game-data/enemies` | GET | 获取敌人模板（含 `enemy_category`、`combat_tags`） |
 
 ---
 
@@ -191,7 +194,7 @@ ApiManager.save_stats(character_id, player_stats.save_to_dict(), func(success, r
 | 5-10 | /characters/{id}/inventory, skills, stats | 背包/技能/属性 加载与保存 |
 | 10a | /characters/{id}/scene_state | 场景状态（场景路径、位置、朝向） |
 | 10b | /characters/{id}/genes | 基因加载/保存（可选） |
-| 11-13 | GET /game-data/items, skills, genes | 静态数据（无需 token） |
+| 11-14 | GET /game-data/items, skills, genes, enemies | 静态数据（无需 token） |
 | 14 | POST /send_verification | 发送验证码 |
 | 15 | POST /verify_email | 邮箱验证 |
 
