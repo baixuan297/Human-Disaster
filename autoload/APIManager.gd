@@ -150,8 +150,8 @@ func load_inventory(character_id: String, callback: Callable) -> void:
 
 ## === 技能API（使用角色 ID） ===
 ##
-## skills_dict 可以直接用 SkillManager.save_skills_data() 返回值：
-## { "Fireball": { "level": 3, "cooldown_remaining": 0.5 }, ... }
+## skills_dict 可直接用 SkillManager.save_skills_data() 返回值：
+## 键为 game.skills.name（与种子数据一致，如「火球术」），值为 { "level": int, "cooldown_remaining": float }。
 func save_skills(character_id: String, skills_dict: Dictionary, callback: Callable = Callable()) -> void:
 	var data := {"skills": skills_dict}
 	make_request("/characters/%s/skills" % character_id, HTTPClient.METHOD_POST, data, callback)
@@ -212,6 +212,9 @@ func upgrade_gene_module(character_id: String, module_id: int, callback: Callabl
 ## === 静态游戏数据 API（GameDataManager 启动时拉取，无需 token） ===
 func get_game_data_items(callback: Callable) -> void:
 	make_request("/game-data/items", HTTPClient.METHOD_GET, {}, callback, false)
+
+func get_game_data_weapons(callback: Callable) -> void:
+	make_request("/game-data/weapons", HTTPClient.METHOD_GET, {}, callback, false)
 
 func get_game_data_skills(callback: Callable) -> void:
 	make_request("/game-data/skills", HTTPClient.METHOD_GET, {}, callback, false)

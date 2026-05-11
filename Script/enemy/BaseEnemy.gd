@@ -32,6 +32,13 @@ signal enemy_hit
 @export var combat_tags: Array[String] = ["HUMANOID"]
 ## 对应后端 `/game-data/enemies` 的 enemy_id；>0 时在静态数据就绪后覆盖 combat_tags
 @export var enemy_template_id: int = 0
+## AnimationTree 状态机里「起身」状态名（alien: Stand Up，zombie: get_up）；处于这些状态时免疫伤害
+@export var intro_getup_state_names: Array[String] = ["Stand Up", "get_up"]
+## 生成后向下射线贴地（CharacterBody3D 原点相对脚底有偏差时可调 `floor_snap_vertical_padding`）
+@export var snap_to_floor_on_spawn: bool = true
+@export var floor_snap_ray_height_above: float = 6.0
+@export var floor_snap_ray_depth_below: float = 80.0
+@export var floor_snap_vertical_padding: float = 0.06
 
 @onready var health_bar = $Stats/SubViewport/health_bar
 @onready var stats_node: Node3D = $Stats          ## 头顶血条容器
@@ -43,6 +50,14 @@ var enemy_aggro: EnemyAggroComponent = null
 ## 最后一次有效伤害的来源（武器/技能发起者），用于结算经验
 var _last_damage_attacker: Node = null
 var _rank_applied: bool = false
+var _intro_anim_tree: AnimationTree = null
+## 供 AI/FSM 控制：true 时命中不扣血，但仍可触发仇恨/进入警觉
+var ai_damage_invulnerable: bool = false
+
+
+## 生成后若外部重新设置了 global_position，可调用此函数再次贴地（不会改变既有逻辑，仅复用原射线贴地实现）
+func resnap_to_floor() -> void:
+	_snap_spawn_to_floor()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -60,6 +75,8 @@ func _ready() -> void:
 		health_bar.value = _health_percent()
 
 	enemy_aggro = get_node_or_null("AggroComponent") as EnemyAggroComponent
+	if enemy_aggro == null:
+		enemy_aggro = get_node_or_null("EnemyAggroComponent") as EnemyAggroComponent
 
 	# 连接部位碰撞（安全获取，子类也可手动 setup）
 	hurt_boxes = get_node_or_null("Hurtboxes")
@@ -68,6 +85,10 @@ func _ready() -> void:
 
 	_sync_combat_tags_from_template()
 	call_deferred("_try_apply_enemy_template_rank")
+
+	_intro_anim_tree = get_node_or_null("AnimationTree") as AnimationTree
+	if snap_to_floor_on_spawn:
+		call_deferred("_snap_spawn_to_floor")
 
 
 func _sync_combat_tags_from_template() -> void:
@@ -121,6 +142,40 @@ func get_combat_tags() -> Array:
 	return combat_tags.duplicate()
 
 
+## 起身动画播放中（AnimationTree 根为状态机且当前节点名为 intro_getup_state_names 之一）
+func is_intro_getup_invulnerable() -> bool:
+	if _intro_anim_tree == null:
+		return false
+	var pb: Variant = _intro_anim_tree.get(&"parameters/playback")
+	if pb == null or not (pb is AnimationNodeStateMachinePlayback):
+		return false
+	var cur: String = String((pb as AnimationNodeStateMachinePlayback).get_current_node())
+	return intro_getup_state_names.has(cur)
+
+
+func _snap_spawn_to_floor() -> void:
+	if not snap_to_floor_on_spawn or not is_inside_tree():
+		return
+	var w3d := get_world_3d()
+	if w3d == null:
+		return
+	var space := w3d.direct_space_state
+	var here := global_position
+	var from := here + Vector3.UP * floor_snap_ray_height_above
+	var to := here + Vector3.DOWN * floor_snap_ray_depth_below
+	var pq := PhysicsRayQueryParameters3D.create(from, to)
+	# 与敌人自身 mask 合并 layer1：避免敌人只与「敌人层」碰撞时射线永远打不中地形
+	pq.collision_mask = collision_mask | CollisionLayers.LAYER_WORLD
+	pq.collide_with_areas = false
+	pq.collide_with_bodies = true
+	pq.exclude = [get_rid()]
+	var hit: Dictionary = space.intersect_ray(pq)
+	if hit.is_empty():
+		return
+	var hit_y: float = hit.position.y
+	global_position.y = hit_y + floor_snap_vertical_padding
+
+
 func _apply_attacker_gene_modifiers(attack_data: AttackData) -> void:
 	if attack_data == null:
 		return
@@ -140,6 +195,17 @@ func _apply_attacker_gene_modifiers(attack_data: AttackData) -> void:
 
 
 func _on_area_3d_body_part_hit(attack_data: AttackData) -> void:
+	if attack_data == null or stats == null:
+		return
+	if is_intro_getup_invulnerable():
+		return
+	if ai_damage_invulnerable:
+		enemy_hit.emit()
+		_record_last_attacker(attack_data)
+		_notify_aggro(attack_data)
+		if has_method("on_ai_invulnerable_hit"):
+			call("on_ai_invulnerable_hit")
+		return
 	_apply_attacker_gene_modifiers(attack_data)
 	enemy_hit.emit()
 	_record_last_attacker(attack_data)
@@ -154,11 +220,13 @@ func _on_area_3d_body_part_hit(attack_data: AttackData) -> void:
 func _on_health_changed(current_health: float, maximum_health: float) -> void:
 	if health_bar:
 		health_bar.value = _health_percent()
-	print("敌人当前血量: %.1f / %.1f" % [current_health, maximum_health])
+	if OS.is_debug_build():
+		print("敌人当前血量: %.1f / %.1f" % [current_health, maximum_health])
 
 
 func _on_died() -> void:
-	print("💀 敌人死亡")
+	if OS.is_debug_build():
+		print("💀 敌人死亡")
 	apply_kill_rewards()
 	delete_collision_nodes(self)
 	if stats_node:
@@ -194,6 +262,10 @@ func apply_dot(
 			return
 		if stats == null:
 			return
+		if is_intro_getup_invulnerable():
+			if ticks_done[0] < total_ticks:
+				get_tree().create_timer(tick_interval).timeout.connect(_do_tick)
+			return
 
 		ticks_done[0] += 1
 
@@ -216,7 +288,8 @@ func apply_dot(
 	# 第一跳延迟 tick_interval 触发
 	get_tree().create_timer(tick_interval).timeout.connect(_do_tick)
 
-	print("🟠 DOT 挂载：%.1f 伤害 × %d 跳，每 %.1fs" % [damage_per_tick, total_ticks, tick_interval])
+	if OS.is_debug_build():
+		print("🟠 DOT 挂载：%.1f 伤害 × %d 跳，每 %.1fs" % [damage_per_tick, total_ticks, tick_interval])
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -242,16 +315,18 @@ func apply_debuff(
 	debuff.source_node = null  # 来自技能，不绑定特定节点
 
 	stats.add_buff(debuff)
-	print("🔵 DEBUFF 挂载：%s  amount=%.2f  持续 %.1fs" % [
-		Stats.BuffableStats.keys()[stat_type], amount, duration
-	])
+	if OS.is_debug_build():
+		print("🔵 DEBUFF 挂载：%s  amount=%.2f  持续 %.1fs" % [
+			Stats.BuffableStats.keys()[stat_type], amount, duration
+		])
 
 	# duration > 0 才安排自动移除
 	if duration > 0.0:
 		get_tree().create_timer(duration).timeout.connect(func():
 			if is_instance_valid(self) and stats != null:
 				stats.remove_buff(debuff)
-				print("🔵 DEBUFF 移除：%s" % Stats.BuffableStats.keys()[stat_type])
+				if OS.is_debug_build():
+					print("🔵 DEBUFF 移除：%s" % Stats.BuffableStats.keys()[stat_type])
 		)
 
 
@@ -273,7 +348,16 @@ func take_damage(amount: float = 10.0) -> void:
 
 ## 外部可调用：直接接收 AttackData（如技能瞬发命中）
 func apply_attack_data(attack_data: AttackData) -> void:
-	if attack_data == null:
+	if attack_data == null or stats == null:
+		return
+	if is_intro_getup_invulnerable():
+		return
+	if ai_damage_invulnerable:
+		enemy_hit.emit()
+		_record_last_attacker(attack_data)
+		_notify_aggro(attack_data)
+		if has_method("on_ai_invulnerable_hit"):
+			call("on_ai_invulnerable_hit")
 		return
 	enemy_hit.emit()
 	_record_last_attacker(attack_data)

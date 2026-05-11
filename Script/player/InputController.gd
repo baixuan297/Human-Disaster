@@ -16,6 +16,7 @@ signal change_weapon_secondary_pressed
 signal change_hand_pressed
 signal next_weapon_pressed
 signal prev_weapon_pressed
+signal drop_pressed
 signal skill_slot_pressed(slot_index: int)
 signal mouse_moved(relative: Vector2)
 
@@ -47,6 +48,8 @@ func _input(event: InputEvent) -> void:
 		next_weapon_pressed.emit()
 	if Input.is_action_just_pressed("prev_weapon") and TutorialManager.is_action_allowed(&"prev_weapon"):
 		prev_weapon_pressed.emit()
+	if Input.is_action_just_pressed("drop") and TutorialManager.is_action_allowed(&"drop"):
+		drop_pressed.emit()
 
 	for i in SKILL_KEYS.size():
 		if Input.is_action_just_pressed(SKILL_KEYS[i]) and TutorialManager.is_action_allowed(SKILL_KEYS[i]):
@@ -56,6 +59,8 @@ func _input(event: InputEvent) -> void:
 
 ## 每帧轮询：移动输入（教程下只返回已解锁的 WASD）
 func get_move_input() -> Vector2:
+	if TutorialManager.is_awaiting_intro_welcome_ack():
+		return Vector2.ZERO
 	if not TutorialManager.is_in_tutorial():
 		return Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var v := Vector2.ZERO

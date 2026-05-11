@@ -30,6 +30,7 @@ buses/default_bus_layout="uid://cackotkspvfy8"
 SettingData="*res://autoload/SettingData.gd"
 SettingSignal="*res://autoload/SettingSignal.gd"
 SaveManager="*res://autoload/SaveManager.gd"
+LocalCharacterSave="*res://autoload/LocalCharacterSave.gd"
 ApiManager="*res://autoload/APIManager.gd"
 GameDataManager="*res://autoload/GameDataManager.gd"
 GeneManager="*res://autoload/GeneManager.gd"
@@ -44,6 +45,7 @@ UserManager="*res://autoload/UserManager.gd"
 GBMssage="*res://autoload/GlobalMessage/GlobalMessage.tscn"
 TutorialManager="*res://autoload/TutorialManager.gd"
 AudioManager="*res://autoload/AudioManager.gd"
+SkillResourceRegistry="*res://autoload/SkillResourceRegistry.gd"
 SkillManager="*res://autoload/SkillManager.gd"
 ScreenEffect="*res://autoload/Screen_Effect/screen_effect.tscn"
 SignalBus="res://autoload/SignalBus.gd"
@@ -229,9 +231,14 @@ drop={
 [layer_names]
 
 3d_physics/layer_1="World"
-3d_physics/layer_2="Player"
-3d_physics/layer_3="Enemy"
+3d_physics/layer_2="Character"
+3d_physics/layer_3="Hurtbox"
+3d_physics/layer_4="SkillArea"
+3d_physics/layer_5="Pickup"
+3d_physics/layer_6="PhysicsProp"
 3d_physics/layer_7="Interactable"
+3d_physics/layer_8="GameplayVolume"
+3d_physics/layer_9="Tutorial"
 
 [rendering]
 

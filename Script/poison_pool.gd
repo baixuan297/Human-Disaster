@@ -14,10 +14,10 @@ func _ready() -> void:
 	if hazard_data == null:
 		push_warning("[poison_pool] 未注入 hazard_data，场景伤害将不生效")
 		return
-	# 确保 Area3D 能检测到玩家（Player 默认在 layer 1）
+	# 检测站在毒池内的角色刚体（Character 层）
 	if area_3d:
 		area_3d.monitoring = true
-		area_3d.collision_mask = 1  # 检测 layer 1（CharacterBody3D 等）
+		area_3d.collision_mask = CollisionLayers.LAYER_CHARACTER
 	
 	damage_timer = Timer.new()
 	damage_timer.wait_time = hazard_data.tick_interval

@@ -60,8 +60,10 @@ signal enemy_hit
 signal out_of_ammo
 ## 弹匣+储备均为 0 → 提示“弹药耗尽”
 signal all_ammo_depleted
-## 成功装备武器 → 可在此更新武器名/稀有度 UI
-signal weapon_equipped(data: WeaponData, slot: int)
+## 成功装备武器 → 可在此更新武器名/稀有度 UI（show_pickup_name：读档恢复等为 false）
+signal weapon_equipped(data: WeaponData, slot: int, show_pickup_name: bool)
+## 当前激活槽位变化（徒手 / 主 / 副）→ 右下角武器条等高亮同步
+signal active_slot_changed(slot: int)
 ## 切换到徒手 → 隐藏弹药栏
 signal switched_to_hand
 
@@ -212,7 +214,9 @@ func equip_weapon(
 	weapon_scene:    PackedScene,
 	viewmodel_scene: PackedScene,
 	auto_switch:     bool = true,
-	data_resource_path: String = ""
+	data_resource_path: String = "",
+	show_pickup_name: bool = true,
+	world_model_scene: PackedScene = null
 ) -> void:
 	if data == null:
 		push_error("WeaponManager.equip_weapon: data 为 null")
@@ -250,8 +254,9 @@ func equip_weapon(
 	_slots[slot]["data_path"] = data_resource_path if data_resource_path != "" else (data.resource_path if data.resource_path != "" else "")
 	_slots[slot]["weapon_scene_path"] = weapon_scene.resource_path if weapon_scene.resource_path != "" else ""
 	_slots[slot]["viewmodel_scene_path"] = viewmodel_scene.resource_path if viewmodel_scene.resource_path != "" else ""
+	_slots[slot]["world_model_path"] = world_model_scene.resource_path if world_model_scene != null and world_model_scene.resource_path != "" else ""
 
-	weapon_equipped.emit(data, slot)
+	weapon_equipped.emit(data, slot, show_pickup_name)
 
 	if auto_switch:
 		switch_to_slot.call_deferred(slot)
@@ -282,6 +287,7 @@ func switch_to_slot(target_slot: int) -> void:
 
 	# 2. 切换当前槽位
 	current_slot = target_slot
+	active_slot_changed.emit(current_slot)
 
 	if target_slot == SLOT_HAND:
 		switched_to_hand.emit()
@@ -308,6 +314,80 @@ func switch_to_slot(target_slot: int) -> void:
 func switch_to_primary()   -> void: await switch_to_slot(SLOT_PRIMARY)
 func switch_to_secondary() -> void: await switch_to_slot(SLOT_SECONDARY)
 func switch_to_hand()      -> void: await switch_to_slot(SLOT_HAND)
+
+
+func _get_drop_aim_forward() -> Vector3:
+	if _main_camera != null:
+		return -_main_camera.global_transform.basis.z.normalized()
+	if _player != null:
+		return -_player.global_transform.basis.z.normalized()
+	return Vector3(0, 0, -1)
+
+
+## 丢弃当前持握槽中的枪械（徒手不可丢），沿主相机视线生成可拾取实体并清空该槽、回到徒手
+func request_drop_current_weapon() -> void:
+	if current_slot == SLOT_HAND:
+		return
+	if _is_switching:
+		return
+	var slot: int = current_slot
+	var s: Dictionary = _slots.get(slot, {})
+	var data: WeaponData = s.get("data") as WeaponData
+	if data == null:
+		return
+	var wspath: String = str(s.get("weapon_scene_path", ""))
+	var vspath: String = str(s.get("viewmodel_scene_path", ""))
+	var dpath: String = str(s.get("data_path", ""))
+	var world_mpath: String = str(s.get("world_model_path", ""))
+	if wspath.is_empty() or vspath.is_empty():
+		push_warning("[WeaponManager] 丢弃失败：缺少 weapon_scene_path / viewmodel_scene_path")
+		return
+	var ws: PackedScene = load(wspath) as PackedScene
+	var vs: PackedScene = load(vspath) as PackedScene
+	if ws == null or vs == null:
+		push_warning("[WeaponManager] 丢弃失败：场景资源不存在")
+		return
+
+	var world_ms: PackedScene = null
+	if not world_mpath.is_empty():
+		world_ms = load(world_mpath) as PackedScene
+
+	## 浅拷贝即可保留弹药整数字段；深拷贝会复制 wheel_icon 等大资源，丢弃瞬间更明显卡顿
+	var drop_data: WeaponData = data.duplicate(false) as WeaponData
+	var pickup := WorldWeapon.create_runtime_pickup(drop_data, ws, vs, dpath, world_ms)
+
+	var parent3d: Node3D = _world_root
+	if parent3d == null and _player != null:
+		parent3d = _player.get_parent() as Node3D
+	if parent3d == null:
+		push_warning("[WeaponManager] 丢弃失败：找不到世界父节点")
+		return
+
+	## 沿当前主相机视线（≈鼠标瞄准方向）丢出；无相机时回退为角色朝前
+	var aim_forward: Vector3 = _get_drop_aim_forward()
+	var cam: Camera3D = _main_camera
+	var drop_origin: Vector3
+	if cam != null:
+		drop_origin = cam.global_position + aim_forward * 0.35
+	else:
+		drop_origin = _player.global_position + Vector3(0.0, 0.9, 0.0)
+	var drop_pos: Vector3 = drop_origin + aim_forward * 1.95
+	parent3d.add_child(pickup)
+	pickup.global_position = drop_pos
+	if _player is CharacterBody3D:
+		var vel: Vector3 = (_player as CharacterBody3D).velocity
+		pickup.linear_velocity = vel + aim_forward * 4.6 + Vector3(0, 0.35, 0)
+
+	var old_container: SubViewportContainer = _get_current_container()
+	if old_container != null:
+		old_container.visible = false
+
+	_clear_slot(slot)
+	current_slot = SLOT_HAND
+	active_slot_changed.emit(current_slot)
+	switched_to_hand.emit()
+	can_shoot = true
+	_is_switching = false
 
 ## 按槽位顺序循环切换：primary → secondary → hand → primary（空槽跳过）
 func switch_to_next() -> void:
@@ -421,6 +501,11 @@ func has_weapon_in_slot(slot: int) -> bool:
 	return _slots.get(slot, {}).get("data") != null
 
 
+## UI/外部只读：获取指定槽位的 WeaponData（不存在则返回 null）
+func get_weapon_data_in_slot(slot: int) -> WeaponData:
+	return _slots.get(slot, {}).get("data", null) as WeaponData
+
+
 ## 退出存档：当前槽位、各槽弹药与资源路径（随 stats 一并 POST 到后端 loadout 字段）
 func get_serializable_loadout() -> Dictionary:
 	var slots_out := {}
@@ -433,6 +518,7 @@ func get_serializable_loadout() -> Dictionary:
 			"data_path": s.get("data_path", ""),
 			"weapon_scene_path": s.get("weapon_scene_path", ""),
 			"viewmodel_scene_path": s.get("viewmodel_scene_path", ""),
+			"world_model_scene_path": s.get("world_model_path", ""),
 			"current_ammo": d.Current_Ammo,
 			"reserve_ammo": d.Reserve_Ammo,
 		}
@@ -458,6 +544,7 @@ func apply_loadout_from_dict(loadout: Dictionary) -> void:
 		var dp: String = str(entry.get("data_path", ""))
 		var wsp: String = str(entry.get("weapon_scene_path", ""))
 		var vsp: String = str(entry.get("viewmodel_scene_path", ""))
+		var wmp: String = str(entry.get("world_model_scene_path", ""))
 		if wsp.is_empty() or vsp.is_empty() or dp.is_empty():
 			continue
 		if not ResourceLoader.exists(dp) or not ResourceLoader.exists(wsp) or not ResourceLoader.exists(vsp):
@@ -477,11 +564,16 @@ func apply_loadout_from_dict(loadout: Dictionary) -> void:
 		var vs: PackedScene = load(vsp) as PackedScene
 		if ws == null or vs == null:
 			continue
-		equip_weapon(wdata, ws, vs, false, dp)
+		var wmscn: PackedScene = null
+		if not wmp.is_empty() and ResourceLoader.exists(wmp):
+			wmscn = load(wmp) as PackedScene
+		equip_weapon(wdata, ws, vs, false, dp, false, wmscn)
 
 	var target_slot: int = int(loadout.get("current_slot", SLOT_HAND))
 	if target_slot != current_slot:
 		await switch_to_slot(target_slot)
+	else:
+		active_slot_changed.emit(current_slot)
 	# 徒手槽或未走拔枪动画分支时，保证可再次操作
 	if current_slot == SLOT_HAND:
 		can_shoot = true
@@ -546,7 +638,7 @@ func _viewmodel_muzzle_to_world(vm: WeaponViewModel) -> Vector3:
 func _handle_raycast_impact(collider: Node, _hit_point: Vector3, data: WeaponData, aim_ray: RayCast3D = null) -> void:
 	if collider == null:
 		return
-	if collider.is_in_group("enemy") and collider.has_method("enemy_hit"):
+	if collider.is_in_group("enemy"):
 		var override_crit_rate: float = -1.0
 		var override_crit_mult: float = -1.0
 		if _player and _player.get("player_stats"):
@@ -558,7 +650,10 @@ func _handle_raycast_impact(collider: Node, _hit_point: Vector3, data: WeaponDat
 		var attack := AttackData.create_weapon_attack(data, _player)
 		attack.base_damage = result[0]
 		attack.is_critical = result[1]
-		collider.enemy_hit(attack)
+		if collider.has_method("enemy_hit"):
+			collider.enemy_hit(attack)
+		elif collider.has_method("apply_attack_data"):
+			collider.apply_attack_data(attack)
 		enemy_hit.emit()
 	if collider.is_in_group("moveObject") and collider is RigidBody3D:
 		var r: RayCast3D = aim_ray if aim_ray != null else _aimray_first
@@ -668,9 +763,11 @@ func clear_all_viewmodels() -> void:
 		s["data_path"] = ""
 		s["weapon_scene_path"] = ""
 		s["viewmodel_scene_path"] = ""
+		s["world_model_path"] = ""
 	current_slot = SLOT_HAND
 	can_shoot = false
 	_is_switching = false
+	active_slot_changed.emit(current_slot)
 
 
 func _clear_slot(slot: int) -> void:
@@ -686,6 +783,7 @@ func _clear_slot(slot: int) -> void:
 	s["data_path"] = ""
 	s["weapon_scene_path"] = ""
 	s["viewmodel_scene_path"] = ""
+	s["world_model_path"] = ""
 
 
 func _can_fire() -> bool:

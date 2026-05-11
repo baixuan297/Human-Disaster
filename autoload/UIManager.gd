@@ -32,6 +32,8 @@ func _ready():
 
 		
 func _input(event: InputEvent) -> void:
+	if TutorialManager and TutorialManager.is_awaiting_intro_welcome_ack():
+		return
 	if _is_ui_allowed():
 		return
 	
@@ -75,6 +77,7 @@ func open_ui(ui_name: String):
 		#print_debug("UI已打开: ", ui_name, " - 栈深度: ", ui_stack.size())
 	else:
 		push_error("创建UI失败: ", ui_name)
+		GlobalMessage.emit_toast("界面暂时无法打开，请稍后再试", "error")
 
 
 # 关闭当前UI

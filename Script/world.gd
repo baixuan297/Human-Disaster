@@ -13,6 +13,12 @@ class_name World
 @onready var player: CharacterBody3D = $"FishMan"
 @onready var _1: Marker3D = $"SpawnLocation/1"
 
+@export_group("敌人生成")
+@export var alien_spawn_center_path: NodePath = NodePath("stage/spawns/spawns4")
+@export var alien_spawn_radius: float = 10.0
+@export var alien_spawn_min_separation: float = 4.0
+@export var alien_spawn_max_attempts: int = 16
+
 # falling on void
 var death_y: float = -20.0
 var falling: bool = true
@@ -45,7 +51,7 @@ func _ready():
 	player.player_died.connect(_on_player_died)
 	
 
-func _input(event):
+func _input(_event):
 	## pausa menu
 	#if Input.is_action_just_pressed("ui_cancel"):
 		#game_paused = !game_paused
@@ -83,6 +89,35 @@ func _process(delta):
 func _get_random_child(parent_node):
 	var random_id = randi() % parent_node.get_child_count()
 	return parent_node.get_child(random_id)
+
+
+func _rand_point_in_circle(center: Vector3, radius: float) -> Vector3:
+	var a := randf_range(0.0, TAU)
+	# 均匀面积采样：r 用 sqrt
+	var r := sqrt(randf()) * radius
+	return center + Vector3(cos(a) * r, 0.0, sin(a) * r)
+
+
+func _is_spawn_point_free(p: Vector3, min_sep: float) -> bool:
+	var min_sep_sq := min_sep * min_sep
+	for child in navigation_region.get_children():
+		if child is Node3D and child.is_in_group("enemy"):
+			var d := (child as Node3D).global_position - p
+			d.y = 0.0
+			if d.length_squared() <= min_sep_sq:
+				return false
+	return true
+
+
+func _pick_alien_spawn_point() -> Vector3:
+	var center_node := get_node_or_null(alien_spawn_center_path) as Node3D
+	var center = center_node.global_position if center_node else _get_random_child(spawns).global_position
+	for _i in range(max(alien_spawn_max_attempts, 1)):
+		var p := _rand_point_in_circle(center, maxf(alien_spawn_radius, 0.0))
+		if _is_spawn_point_free(p, maxf(alien_spawn_min_separation, 0.0)):
+			return p
+	# 兜底：直接用中心点（可能会重叠，但保证能生成）
+	return center
 """
 # 生成僵尸
 func _on_zombiespawn_timeout():
@@ -94,12 +129,16 @@ func _on_zombiespawn_timeout():
 	navigation_region.add_child(instance)
 """
 func _on_alienspawn_timeout():
-	var spawn_point = _get_random_child(spawns).global_position
+	var spawn_point = _pick_alien_spawn_point()
 	instance = alien.instantiate()
-	instance.position = spawn_point
 	instance.visible = true
-	#instance.enemy_hit.connect(_on_enemy_hit)
 	navigation_region.add_child(instance)
+	# 使用世界坐标：若父节点 NavigationRegion3D 有平移/旋转/缩放，必须在入树后设置 global_transform，避免继承缩放导致模型异常
+	if instance is Node3D:
+		(instance as Node3D).global_position = spawn_point
+	# 生成点可能在空中：让敌人立即复用自身贴地逻辑再贴一次
+	if instance.has_method("resnap_to_floor"):
+		instance.call_deferred("resnap_to_floor")
 
 #func _on_enemy_hit():
 	## 击中反馈

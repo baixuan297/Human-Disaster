@@ -70,10 +70,10 @@ func enemy_hit(attack_data: AttackData) -> void:
 	# 3. 发射信号通知敌人主体
 	# ──────────────────────────────────────────────────────────
 	body_part_hit.emit(attack_data)
-	
-	# 调试输出
-	print("🎯 命中部位: %s | 倍率: %.1fx | 最终伤害: %.1f" % [
-		BodyPart.keys()[body_part],
-		multiplier,
-		attack_data.final_damage
-	])
+
+	if OS.is_debug_build():
+		print("🎯 命中部位: %s | 倍率: %.1fx | 最终伤害: %.1f" % [
+			BodyPart.keys()[body_part],
+			multiplier,
+			attack_data.final_damage
+		])

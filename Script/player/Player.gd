@@ -83,6 +83,9 @@ var current_person: PersonView = PersonView.FIRST
 @onready var crosshair:       TextureRect    = $UI/effects/crosshair
 @onready var health_bar:      ProgressBar    = $UI/healthBar
 @onready var health_label:    Label          = $UI/healthLabel
+@onready var weapon_wheel: WeaponWheel = $UI/WeaponWheel as WeaponWheel
+var _weapon_pickup_toast: Label
+var _weapon_pickup_toast_timer: Timer
 
 
 # ──────────────────────────────────────────────────────────────
@@ -105,9 +108,8 @@ var current_person: PersonView = PersonView.FIRST
 @onready var player_ui_controller: Node = get_node_or_null("PlayerUIController")
 @onready var movement_audio_component: Node = get_node_or_null("MovementAudioComponent")
 
-@export var fireball_skill:     SkillResource
-@export var lightning_skill:    SkillResource
-@export var groupHealing_skill: SkillResource
+## 可选：在编辑器中覆盖默认测试技能栏；留空则使用 PlayerDefaultSkillLoadout.create_test_loadout()
+@export var default_skill_loadout: PlayerDefaultSkillLoadout
 
 
 # ──────────────────────────────────────────────────────────────
@@ -136,6 +138,8 @@ func _ready() -> void:
 	# ── 武器系统：WeaponManager 在子节点 _ready 中已自绑定相机/射线，此处只连信号 ──
 	weapon_manager.ammo_changed.connect(_on_ammo_changed)
 	weapon_manager.weapon_equipped.connect(_on_weapon_equipped)
+	if not weapon_manager.active_slot_changed.is_connected(_on_weapon_active_slot_changed):
+		weapon_manager.active_slot_changed.connect(_on_weapon_active_slot_changed)
 
 	# ── 解耦组件初始化（节点路径：InputController, MovementComponent, ...）────
 	_setup_components()
@@ -143,9 +147,12 @@ func _ready() -> void:
 	# ── 角色属性与技能 ──────────────────────────────────
 	_setup_player_stats()
 	_setup_skills()
+	if SkillManager.skill_used.is_connected(_on_skill_used):
+		SkillManager.skill_used.disconnect(_on_skill_used)
 	SkillManager.skill_used.connect(_on_skill_used)
 	# 从快照或 API 恢复数据（必须在 _setup_player_stats / _setup_skills 之后）
 	CharacterDataManager.restore_to_player(self)
+	call_deferred("_refresh_weapon_wheel_hud")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -165,9 +172,12 @@ func _remap_move_input_for_person(raw: Vector2) -> Vector2:
 
 
 func _setup_components() -> void:
+	if input_controller != null and not input_controller.drop_pressed.is_connected(_on_drop_weapon_pressed):
+		input_controller.drop_pressed.connect(_on_drop_weapon_pressed)
+
 	if not movement_component:
 		return
-	
+
 	# ─────────────────────────────
 	#  1. 运动 / 相机 / 交互组件初始化
 	# ─────────────────────────────
@@ -264,7 +274,10 @@ func _on_input_throw() -> void:
 func _on_skill_slot_pressed(slot_index: int) -> void:
 	var target_pos := get_target_position()
 	var target_node := get_target_node()
-	if slot_index == 2:
+	var cfg: PlayerDefaultSkillLoadout = default_skill_loadout
+	if cfg == null:
+		cfg = PlayerDefaultSkillLoadout.create_test_loadout()
+	if cfg.get_use_caster_position_for_slot(slot_index):
 		SkillManager.use_slot(slot_index, get_player_position(), target_node)
 	else:
 		SkillManager.use_slot(slot_index, target_pos, target_node)
@@ -431,13 +444,17 @@ func _on_player_died() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
+		if SkillManager and SkillManager.skill_used.is_connected(_on_skill_used):
+			SkillManager.skill_used.disconnect(_on_skill_used)
 		if player_stats.character_level_up.is_connected(_on_player_stats_level_up):
 			player_stats.character_level_up.disconnect(_on_player_stats_level_up)
 		if player_stats.experience_gained.is_connected(_on_player_stats_experience_gained):
 			player_stats.experience_gained.disconnect(_on_player_stats_experience_gained)
 		if GeneManager.genes_changed.is_connected(player_stats.recalculate_stats):
 			GeneManager.genes_changed.disconnect(player_stats.recalculate_stats)
-		CharacterDataManager.snapshot_before_scene_change()
+		# PREDELETE 阶段 SceneTree 可能已销毁；CharacterDataManager 内部会判定 is_inside_tree 后再快照。
+		if CharacterDataManager:
+			CharacterDataManager.snapshot_before_scene_change()
 		# viewmodel 容器挂在根 viewport，场景切换时不会自动释放，需显式清理
 		if weapon_manager:
 			weapon_manager.clear_all_viewmodels()
@@ -454,8 +471,134 @@ func _on_ammo_changed(Current_Ammo: int, Reserve_Ammo: int) -> void:
 
 
 ## 武器装备成功（可在此更新武器名称 UI、稀有度颜色等）
-func _on_weapon_equipped(data: WeaponData, slot: int) -> void:
+func _on_weapon_equipped(data: WeaponData, slot: int, show_pickup_name: bool) -> void:
 	print("装备武器: [%s] → 槽位 %d" % [data.Weapon_name, slot])
+	if show_pickup_name:
+		_show_weapon_pickup_name(data.Weapon_name if data else "")
+	_refresh_weapon_wheel_hud()
+
+
+func _on_weapon_active_slot_changed(_slot: int) -> void:
+	_refresh_weapon_wheel_hud()
+
+
+func _refresh_weapon_wheel_hud() -> void:
+	if weapon_wheel == null:
+		return
+	weapon_wheel.set_items(_build_weapon_wheel_items())
+	weapon_wheel.set_highlight_slot(weapon_manager.current_slot)
+
+
+func _ensure_weapon_pickup_toast() -> void:
+	if is_instance_valid(_weapon_pickup_toast):
+		return
+	var ui := get_node_or_null("UI")
+	if ui == null:
+		return
+	var lbl := Label.new()
+	lbl.name = "WeaponPickupToast"
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.visible = false
+	lbl.z_index = 80
+	lbl.add_theme_font_size_override("font_size", 22)
+	ui.add_child(lbl)
+	lbl.anchor_left = 0.5
+	lbl.anchor_right = 0.5
+	lbl.anchor_top = 1.0
+	lbl.anchor_bottom = 1.0
+	lbl.offset_left = -320.0
+	lbl.offset_right = 320.0
+	lbl.offset_top = -120.0
+	lbl.offset_bottom = -72.0
+	_weapon_pickup_toast = lbl
+
+	var t := Timer.new()
+	t.name = "WeaponPickupToastTimer"
+	t.one_shot = true
+	t.wait_time = 2.6
+	add_child(t)
+	t.timeout.connect(_hide_weapon_pickup_toast)
+	_weapon_pickup_toast_timer = t
+
+
+func _show_weapon_pickup_name(display_name: String) -> void:
+	if display_name.is_empty():
+		return
+	_ensure_weapon_pickup_toast()
+	if not is_instance_valid(_weapon_pickup_toast):
+		return
+	_weapon_pickup_toast.text = display_name
+	_weapon_pickup_toast.visible = true
+	if is_instance_valid(_weapon_pickup_toast_timer):
+		_weapon_pickup_toast_timer.stop()
+		_weapon_pickup_toast_timer.start()
+
+
+func _hide_weapon_pickup_toast() -> void:
+	if is_instance_valid(_weapon_pickup_toast):
+		_weapon_pickup_toast.visible = false
+
+
+func _on_drop_weapon_pressed() -> void:
+	if PauseManager.get_current_state() != PauseManager.PauseState.NONE:
+		return
+	weapon_manager.request_drop_current_weapon()
+
+
+func _build_weapon_wheel_items() -> Array[Dictionary]:
+	## 固定顺序与场景子节点一致：**Weapon1=徒手（刀）、Weapon2=副武器、Weapon3=主武器**
+	var empty_tex := _get_weapon_wheel_empty_texture()
+	var hand_tex := load("res://素材/image/gun/WeaponWheel/Knife.png") as Texture2D
+	var items: Array[Dictionary] = []
+	items.append({
+		"slot_id": WeaponManager.SLOT_HAND,
+		"name": "HAND",
+		"icon": hand_tex,
+	})
+	var sec := weapon_manager.get_weapon_data_in_slot(WeaponManager.SLOT_SECONDARY)
+	items.append({
+		"slot_id": WeaponManager.SLOT_SECONDARY,
+		"name": sec.Weapon_name if sec else "—",
+		"icon": _resolve_weapon_wheel_icon(sec) if sec else empty_tex,
+	})
+	var prim := weapon_manager.get_weapon_data_in_slot(WeaponManager.SLOT_PRIMARY)
+	items.append({
+		"slot_id": WeaponManager.SLOT_PRIMARY,
+		"name": prim.Weapon_name if prim else "—",
+		"icon": _resolve_weapon_wheel_icon(prim) if prim else empty_tex,
+	})
+	return items
+
+
+func _get_weapon_wheel_empty_texture() -> Texture2D:
+	var p := "res://素材/image/gun/WeaponWheel/wheel_slot_empty.png"
+	if ResourceLoader.exists(p):
+		return load(p) as Texture2D
+	return load("res://素材/image/gun/bullet_icon.png") as Texture2D
+
+
+func _resolve_weapon_wheel_icon(d: WeaponData) -> Texture2D:
+	if d == null:
+		return null
+	if d.wheel_icon != null:
+		return d.wheel_icon
+	var row: Dictionary = GameDataManager.get_weapon_by_name(d.Weapon_name) if GameDataManager else {}
+	var ip := str(row.get("icon_path", ""))
+	if not ip.is_empty() and ResourceLoader.exists(ip):
+		return load(ip) as Texture2D
+	return _weapon_icon_for_name(d.Weapon_name)
+
+
+func _weapon_icon_for_name(name: String) -> Texture2D:
+	match name:
+		"PISTOL":
+			return load("res://素材/image/gun/WeaponWheel/Pistol.png") as Texture2D
+		"MP7":
+			return load("res://素材/image/gun/WeaponWheel/MP7.png") as Texture2D
+		_:
+			return null
 
 
 # WeaponManager.weapon_equipped 后 ammo_changed 信号会自动触发弹药栏显示
@@ -465,20 +608,25 @@ func _on_weapon_equipped(data: WeaponData, slot: int) -> void:
 # ═══════════════════════════════════════════════════════════════
 #  技能系统
 # ═══════════════════════════════════════════════════════════════
+#
+# 默认技能栏：**PlayerDefaultSkillLoadout**（`default_skill_loadout` 为空则用 create_test_loadout()）。
+# 与云端等级合并顺序：先 _setup_skills，再 CharacterDataManager.restore_to_player → load_skills_data。
+# 命名与别名见 docs/SKILL_SYSTEM.md 第 10 节。
 
 func _setup_skills() -> void:
 	SkillManager.character = self
-	# 未登录时用 Export 默认技能；restore_to_player 会覆盖
-	if UserManager.current_character_id.is_empty():
-		if fireball_skill:
-			SkillManager.add_skill(fireball_skill, 1)
-			SkillManager.add_to_skill_bar("FireBall", 0)
-		if lightning_skill:
-			SkillManager.add_skill(lightning_skill, 1)
-			SkillManager.add_to_skill_bar("Lightning", 1)
-		if groupHealing_skill:
-			SkillManager.add_skill(groupHealing_skill, 1)
-			SkillManager.add_to_skill_bar("Group Healing", 2)
+	var cfg: PlayerDefaultSkillLoadout = default_skill_loadout
+	if cfg == null:
+		cfg = PlayerDefaultSkillLoadout.create_test_loadout()
+	elif cfg.entries.is_empty():
+		push_warning("[Player] default_skill_loadout 已指定但 entries 为空，回退到内置测试技能栏")
+		cfg = PlayerDefaultSkillLoadout.create_test_loadout()
+	for entry in cfg.entries:
+		if entry == null or entry.skill_resource == null:
+			continue
+		SkillManager.add_skill(entry.skill_resource, 1)
+		if entry.skill_bar_slot >= 0:
+			SkillManager.add_to_skill_bar(entry.skill_resource.skill_name, entry.skill_bar_slot)
 
 
 func upgrade_skill(skill_name: String) -> void:
@@ -517,6 +665,7 @@ func get_target_node() -> Node3D:
 	var from := camera.project_ray_origin(mouse_pos)
 	var to := from + camera.project_ray_normal(mouse_pos) * 1000.0
 	var query := PhysicsRayQueryParameters3D.create(from, to)
+	query.collision_mask = CollisionLayers.MASK_AIM_TARGET
 	var result := get_world_3d().direct_space_state.intersect_ray(query)
 	if not result or not result.has("collider"):
 		return null
@@ -542,6 +691,7 @@ func get_target_position() -> Vector3:
 	var to        := from + camera.project_ray_normal(mouse_pos) * 1000.0
 
 	var query  := PhysicsRayQueryParameters3D.create(from, to)
+	query.collision_mask = CollisionLayers.MASK_SKILL_MOUSE_RAY
 	var result := get_world_3d().direct_space_state.intersect_ray(query)
 	return result["position"] if result else global_position + global_transform.basis.z * 100.0
 

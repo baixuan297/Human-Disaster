@@ -11,11 +11,13 @@ var tick_timer: float = 0.0
 # 记录当前在范围内的合法目标
 var allies_in_range: Array[Node3D] = []
 
-func setup(data: SkillResource, level: int, _caster: Node, _duration: float) -> void:
+## 统一 setup 签名；duration<=0 时保留默认值（5 秒）
+func setup(data: SkillResource, level: int, _caster: Node, _duration: float = 0.0) -> void:
 	skill_resource = data
 	skill_level = level
 	caster = _caster
-	duration = _duration
+	if _duration > 0.0:
+		duration = _duration
 
 func _ready() -> void:
 	# 到期自动销毁
@@ -48,3 +50,7 @@ func _on_area_3d_body_entered(body: Node3D) -> void:
 	if body.is_in_group("Player") or body.is_in_group("friendly"):
 		if not allies_in_range.has(body):
 			allies_in_range.append(body)
+
+
+func _on_area_3d_body_exited(body: Node3D) -> void:
+	allies_in_range.erase(body)

@@ -2,6 +2,8 @@
 
 本文档描述项目中**伤害计算**、**受击流程**与 **Stats** 的架构，涵盖角色、敌人、技能、武器的统一伤害路径。
 
+**文档分工**：敌人 AI、近战距离判定、起身无敌、生成贴地等 **不写在此**；见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**。
+
 ---
 
 ## 一、核心原则
@@ -99,24 +101,11 @@ sequenceDiagram
 
 ---
 
-## 五、敌人攻击角色流程
+## 五、敌人攻击角色
 
-```mermaid
-sequenceDiagram
-    participant Enemy as enemy.gd
-    participant AnimTree as AnimationTree
-    participant MethodTrack as 攻击动画 Method Track
-    participant Player as Player
-    participant Stats as player_stats
-    Enemy->>AnimTree: _anim_set "attack" true
-    AnimTree->>MethodTrack: 命中帧调用 _hit_finished
-    MethodTrack->>Enemy: _hit_finished
-    Enemy->>Player: apply_attack_data(attack)
-    Note over Enemy: attack 使用 stats.current_attack
-    Player->>Stats: take_damage(attack)
-    Stats->>Player: health_changed
-    Player->>Player: PlayerUIController 更新血条
-```
+数据链：**`EnemyMeleeFsm.on_hit_finished()`** → 构造 **`AttackData`**（`AttackType.WEAPON`，`source_node` 为敌人，`final_damage` 常用敌人 **`stats.current_attack`**）→ **`Player.apply_attack_data`** → **`player_stats.take_damage`** → `health_changed` / UI。
+
+动画 **Method 轨**、**平面距离**、**`attack_range_slack`**、**AnimationPlayer `root_node`**、场景碰撞体与 **`NavigationAgent3D.radius`** 等实现细节集中在 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**「敌人近战与命中判定」，此处不重复。
 
 ---
 
@@ -163,5 +152,6 @@ sequenceDiagram
 | `Script/poison_pool.gd` | 毒池场景伤害，必须注入 Hazard 资源（无则 push_warning） |
 | `Script/player/Player.gd` | apply_attack_data、_on_stats_health_changed、health_changed 中继 |
 | `Script/player/PlayerUIController.gd` | on_health_changed 更新血条 UI |
-| `Script/enemy/BaseEnemy.gd` | _on_area_3d_body_part_hit、_on_health_changed、_on_died |
-| `Script/enemy/enemy.gd` | _hit_finished 构造 AttackData 并调用 Player.apply_attack_data |
+| `Script/enemy/BaseEnemy.gd` | 受击、起身无敌、DOT、`_on_died` 等（见 [ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)） |
+| `Script/enemy/enemy.gd` | `_hit_finished` → `EnemyMeleeFsm.on_hit_finished` |
+| `Script/enemy/EnemyMeleeFsm.gd` | 近战状态与出手命中判定 |

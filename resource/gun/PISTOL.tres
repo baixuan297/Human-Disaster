@@ -7,6 +7,7 @@
 [ext_resource type="AudioStream" uid="uid://bfbdd80gorvon" path="res://素材/sound/gun/Pistol/Reload_Sound_Effect.wav" id="3_glny5"]
 [ext_resource type="Script" uid="uid://2oqwng7sodpr" path="res://resource/gun/WeaponAudioData.gd" id="4_b3m1e"]
 [ext_resource type="AudioStream" uid="uid://mfd1swgkxlgw" path="res://素材/sound/gun/Pistol/Fire_Sound_Effect.wav" id="5_bweul"]
+[ext_resource type="Texture2D" uid="uid://dhug6u7ide4bj" path="res://素材/image/gun/WeaponWheel/Pistol.png" id="6_wheelico"]
 
 [sub_resource type="Resource" id="Resource_gc8va"]
 script = ExtResource("4_b3m1e")
@@ -19,6 +20,7 @@ metadata/_custom_type_script = "uid://2oqwng7sodpr"
 [resource]
 script = ExtResource("1_bscsr")
 Weapon_name = "PISTOL"
+wheel_icon = ExtResource("6_wheelico")
 weapon_slot = 1
 projectile_scene = ExtResource("1_2qnqg")
 Current_Ammo = 15

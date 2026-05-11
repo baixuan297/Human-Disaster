@@ -1,12 +1,15 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=4 format=3 uid="uid://dw7i7t2q1ku25"]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dw7i7t2q1ku25"]
 
 [ext_resource type="Resource" uid="uid://b4e4wx24gbj2d" path="res://resource/gun/MP7_audio_data.tres" id="1_1exrg"]
 [ext_resource type="PackedScene" uid="uid://gmuq8un6mbeh" path="res://Scene/gunshoot/bullet.tscn" id="1_taexb"]
 [ext_resource type="Script" uid="uid://b82rehlfggawy" path="res://resource/gun/weapon_resource.gd" id="1_xlt0q"]
+[ext_resource type="Texture2D" uid="uid://bu5te6imfrvjt" path="res://素材/image/gun/WeaponWheel/MP7.png" id="2_wheelico"]
 
 [resource]
 script = ExtResource("1_xlt0q")
 Weapon_name = "MP7"
+wheel_icon = ExtResource("2_wheelico")
+rarity = 1
 projectile_scene = ExtResource("1_taexb")
 Current_Ammo = 30
 Reserve_Ammo = 60

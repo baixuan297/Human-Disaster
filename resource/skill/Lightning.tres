@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SkillResource" load_steps=5 format=3 uid="uid://vw8peayxmgvv"]
+[gd_resource type="Resource" script_class="SkillResource" format=3 uid="uid://vw8peayxmgvv"]
 
 [ext_resource type="PackedScene" uid="uid://bv13f7k44xbuo" path="res://Scene/skill system/skill_effect/skill_lightning.tscn" id="1_jcgki"]
 [ext_resource type="AudioStream" uid="uid://dmrhwbej0x1dl" path="res://素材/sound/skill/lightning.wav" id="2_7rxp6"]
@@ -7,8 +7,9 @@
 
 [resource]
 script = ExtResource("3_7rxp6")
+skill_id = 1
 skill_name = "Lightning"
-description = "Lightning skill"
+description = "在目标区域召唤持续雷电场，每 0.25 秒对范围内所有敌人造成雷电伤害。"
 icon = ExtResource("2_s5xwh")
 base_attack_power = 0.0
 base_duration = 3.0

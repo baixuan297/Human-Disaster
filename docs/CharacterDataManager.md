@@ -2,7 +2,7 @@
 
 CharacterDataManager 是**角色数据加载/保存**的全局统一入口，负责快照/恢复（减少场景切换时的 API 调用）和存档到 API。
 
-**注意**：游戏存档（背包/技能/属性）由此模块负责，与 `SaveManager`（仅设置存档）不同。详见 `docs/SaveManager.md`。
+**注意**：游戏存档（背包/技能/属性）由此模块负责，与 `SaveManager`（仅设置存档）不同。本地加密快存与版本号由 **`LocalCharacterSave`** 负责。详见 `docs/SaveManager.md`、`docs/LOCAL_AND_CLOUD_SAVE.md`。技能快照/API 键与 **`SkillResource.skill_name`** 的对应关系见 **[SKILL_SYSTEM.md](SKILL_SYSTEM.md)** 第 10 节。
 
 ---
 
@@ -48,14 +48,23 @@ CharacterDataManager.snapshot_before_scene_change()
     ↓
 CharacterDataManager.save_to_api()
     ↓
-先快照，再并行请求 API（10 秒冷却，force=true 可忽略）
+先快照，再并行请求 API（约 **10 秒**冷却，`force=true` 可忽略）
     ↓
-背包 / 技能 / 基因 各 1 次 POST；属性为 1 次 POST（stats.save_to_dict 含 experience、loadout，并可合并 scene_state）
+背包 / 技能 / 基因 各 1 次 POST；属性为 1 次 POST（stats.save_to_dict 含 experience、loadout，并可合并 scene_state；含 `tutorial_completed` 等）
     ↓
 character_data_save_completed.emit()
 ```
 
-### 2.4 数据流图
+### 2.4 本地快存与版本号（`LocalCharacterSave`）
+
+- **登录拉取全量成功后**：`write_cloud_authoritative` 覆盖 `user://local_character_save/{id}.lcs`，并重置 **`local_revision` / `cloud_ack_revision`**（与云端一致）。
+- **游玩中**：内置 **定时器**（默认约 18s，常量 `LOCAL_CHECKPOINT_INTERVAL_SEC`）与 **`snapshot_before_scene_change`** 在快照后调用 **`write_play_session_checkpoint`**。
+- **每次 `save_to_api` 在快照之后**：先写本地再发 API；**全部 POST 成功**后 **`mark_full_api_synced`**。
+- **手动仅本地**：`save_local_checkpoint_now()`；**待同步查询**：`has_pending_cloud_sync()`。
+
+完整策略、冲突与后续服务端 `revision` 建议见 **[LOCAL_AND_CLOUD_SAVE.md](LOCAL_AND_CLOUD_SAVE.md)**。
+
+### 2.5 数据流图
 
 ```mermaid
 flowchart TB
@@ -105,15 +114,18 @@ flowchart TB
         TakeSnap[_take_snapshot]
         PostInv[ApiManager.save_inventory]
         PostSkills[ApiManager.save_skills]
+        PostGenes[ApiManager.save_genes]
         PostStats[ApiManager.save_stats]
         EmitComplete[character_data_save_completed]
     end
     SaveAPI --> TakeSnap
     TakeSnap --> PostInv
     TakeSnap --> PostSkills
+    TakeSnap --> PostGenes
     TakeSnap --> PostStats
     PostInv --> EmitComplete
     PostSkills --> EmitComplete
+    PostGenes --> EmitComplete
     PostStats --> EmitComplete
 ```
 
@@ -147,9 +159,11 @@ CharacterDataManager.save_to_api()
 # 强制保存（登出等关键节点）
 CharacterDataManager.save_to_api(Callable(), true)
 
-# 带回调
-CharacterDataManager.save_to_api(func(success, _resp): ...)
+# 带回调（第二参为失败详情字典或 null；成功且全部 POST 成功时为 null）
+CharacterDataManager.save_to_api(func(success, resp): ...)
 ```
+
+**回调 `success` / `resp`**：`success` 为 false 时，`resp` 可能为 `{ "message": "...", "errors": [ { "kind": "inventory"|"skills"|"genes"|"stats", "message": "..." }, ... ] }`（便于 UI 区分哪一路失败）；`UserManager.current_character_id` 为空时直接 `success=false` 并带 `missing_character_id` 类说明。约 **30s** 内未完成全部请求会超时并 `success=false`。教程场景传送区：若**无当前角色 ID**（未登录访客），为不阻塞流程会**直接切场景**而不等待云端；已登录则依赖上述存档结果决定是否淡出并进入 `training_ground`。
 
 ### 3.3 获取当前 Player
 

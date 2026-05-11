@@ -16,9 +16,13 @@ extends BaseEnemy
 @export_group("感知")
 @export var detection_range:   float = 15.0
 @export var lose_target_range: float = 22.0
+## 进入该距离后从 Look 进入 Alert，并在短暂 Alert 后开始追击
+@export var alert_range:       float = 8.0
 
 @export_group("战斗")
 @export var attack_range:      float = 2.0
+## 平面近战判定在 attack_range 上的额外容差（双 CharacterBody 挤开时仍应能进入攻击 / 命中）
+@export var attack_range_slack: float = 0.75
 @export var attack_cooldown:   float = 1.2
 @export var stun_on_hit_chance: float = 0.25
 @export var stun_duration:     float = 0.8
@@ -44,7 +48,6 @@ func _ready() -> void:
 	_fsm.setup(self, nav_agent, anim_tree)
 
 	call_deferred("_bind_ai_profile")
-	call_deferred("_log_ai_routing_once")
 
 
 func _bind_ai_profile() -> void:
@@ -70,6 +73,12 @@ func on_received_damage() -> void:
 		_fsm.on_received_damage()
 
 
+## BaseEnemy 在「AI 免伤阶段」收到命中时调用：用于从 Look 进入 Alert
+func on_ai_invulnerable_hit() -> void:
+	if _fsm:
+		_fsm.on_invulnerable_hit()
+
+
 ## AnimationTree Method Track — 攻击命中帧
 func _hit_finished() -> void:
 	if _fsm:
@@ -89,7 +98,6 @@ func _on_died() -> void:
 	_is_dead = true
 	apply_kill_rewards()
 
-	print("💀 [%s] 死亡" % name)
 	if _fsm:
 		_fsm.mark_host_dead()
 	delete_collision_nodes(self)
@@ -99,18 +107,3 @@ func _on_died() -> void:
 
 	await get_tree().create_timer(2.0).timeout
 	queue_free()
-
-
-# ── 调试 / 数据 ───────────────────────────────────────────────────────────────
-
-func _log_ai_routing_once() -> void:
-	if enemy_template_id <= 0:
-		return
-	if not GameDataManager.is_loaded():
-		if not GameDataManager.all_data_loaded.is_connected(_log_ai_routing_once):
-			GameDataManager.all_data_loaded.connect(_log_ai_routing_once, CONNECT_ONE_SHOT)
-		return
-	var def: Dictionary = GameDataManager.get_enemy(enemy_template_id)
-	if EnemyBehaviorBrain.wants_behavior_tree(def) and EnemyBehaviorBrain.fallback_fsm_when_bt_missing(def):
-		var bt: String = EnemyBehaviorBrain.get_behavior_tree_id(def)
-		print("[enemy] template=%s 已配置行为树/ bt 包，当前仍由 FSM 兜底，BT id=%s" % [enemy_template_id, bt])

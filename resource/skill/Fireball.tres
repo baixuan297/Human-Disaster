@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SkillResource" load_steps=5 format=3 uid="uid://dqo5cm121wfou"]
+[gd_resource type="Resource" script_class="SkillResource" format=3 uid="uid://dqo5cm121wfou"]
 
 [ext_resource type="PackedScene" uid="uid://ph1jjjda5x57" path="res://Scene/skill system/skill_effect/skill_fireball.tscn" id="1_q4mrk"]
 [ext_resource type="AudioStream" uid="uid://cp2ruj27ikhw1" path="res://素材/sound/skill/fireball.wav" id="2_2tm5d"]
@@ -7,8 +7,9 @@
 
 [resource]
 script = ExtResource("3_yu216")
+skill_id = 3002002
 skill_name = "FireBall"
-description = "OMG"
+description = "发射一枚高温火球，沿直线飞行，命中首个敌人后爆炸造成火焰伤害。"
 icon = ExtResource("2_q4mrk")
 base_attack_power = 0.0
 base_range = 10000000000.0

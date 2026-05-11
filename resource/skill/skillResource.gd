@@ -2,6 +2,9 @@
 class_name SkillResource
 extends Resource
 
+## 与 skills.json 的关联 ID（0 = 未关联）
+@export var skill_id: int = 0
+
 ## 基础属性
 @export var skill_name: String = "UNAMED"
 @export_multiline var description: String = ""
@@ -31,18 +34,12 @@ var duration_curve: Curve = preload("uid://br5sdwgii24u2")
 
 ## 技能类型
 enum SkillType {
-	# 瞬发技能
-	INSTANT,
-	# 投射物技能
-	PROJECTILE,
-	# 范围伤害
-	AOE,
-	# 持续伤害
-	DOT,
-	# 增益技能
-	BUFF,
-	# 减益技能
-	DEBUFF,
+	INSTANT,      ## 瞬发单体
+	PROJECTILE,   ## 投射物（可持续飞行、命中生效）
+	AOE,          ## 范围伤害 / 持续区域
+	DOT,          ## 持续伤害（对目标施加 DOT）
+	BUFF,         ## 增益区域 / 自身（含治疗、群体增益）
+	DEBUFF,       ## 减益（属性削弱）
 }
 @export var skill_type: SkillType = SkillType.INSTANT
 
@@ -90,6 +87,7 @@ func _calculate_value(base_value: float, curve: Curve, level: int) -> float:
 ## 获取技能的完整信息 用来调试
 func get_skill_info(level: int) -> Dictionary:
 	return {
+		"skill_id": skill_id,
 		"name": skill_name,
 		"description": description,
 		"level": level,

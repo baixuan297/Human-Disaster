@@ -16,9 +16,12 @@ func process_enemy_death(enemy: BaseEnemy, _killer_hint: Node = null) -> void:
 		return
 	if _resolve_loot_recipient(enemy.get_last_damage_attacker()) == null:
 		return
+	var gained_kinds: int = 0
 	for row in drops:
-		if row is Dictionary:
-			_roll_one_drop(row as Dictionary)
+		if row is Dictionary and _roll_one_drop(row as Dictionary):
+			gained_kinds += 1
+	if gained_kinds > 0:
+		GlobalMessage.emit_toast("获得了战利品！", "success")
 
 
 func _resolve_loot_recipient(from_node: Node) -> Node:
@@ -30,17 +33,18 @@ func _resolve_loot_recipient(from_node: Node) -> Node:
 	return get_tree().get_first_node_in_group("Player")
 
 
-func _roll_one_drop(row: Dictionary) -> void:
+func _roll_one_drop(row: Dictionary) -> bool:
 	var iid: int = int(row.get("item_id", 0))
 	if iid <= 0:
-		return
+		return false
 	var rate: float = float(row.get("drop_rate", 0.0))
 	if rate <= 0.0:
-		return
+		return false
 	if randf() > rate:
-		return
+		return false
 	var mn: int = maxi(1, int(row.get("min_qty", 1)))
 	var mx: int = maxi(mn, int(row.get("max_qty", 1)))
 	var qty: int = randi_range(mn, mx)
 	if InventoryManager:
-		InventoryManager.add_item_by_numeric_id(iid, qty)
+		return InventoryManager.add_item_by_numeric_id(iid, qty)
+	return false

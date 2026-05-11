@@ -43,6 +43,7 @@ const KEY_NAME_TO_ACTION: Dictionary = {
 	"Ctrl_R": &"crouch",
 	"R": &"reload",
 	"F": &"interactable",
+	"G": &"drop",
 	"Q": &"Skill1",
 	"E": &"Skill2",
 	"X": &"Skill3",
@@ -93,6 +94,9 @@ func _on_tutorial_step_changed(_new_step: TutorialManager.Step) -> void:
 ## 根据教程步骤更新 ColorRect 颜色：仅本阶段高亮的键参与高亮，前阶段键为默认
 func _update_tutorial_highlight() -> void:
 	if not is_instance_valid(color_rect):
+		return
+	if TutorialManager and TutorialManager.is_awaiting_intro_welcome_ack():
+		color_rect.color = DEFAULT_COLOR
 		return
 	# 非教程：全部默认
 	if not TutorialManager or not TutorialManager.is_in_tutorial():

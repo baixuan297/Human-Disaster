@@ -1,3 +1,4 @@
+## 火球投射物效果 — 由 Skill.gd 以 `setup(resource, level, caster, duration)` 激活。
 extends Node3D
 
 @export var speed: float = 15.0
@@ -6,16 +7,19 @@ extends Node3D
 var skill_resource: SkillResource
 var skill_level: int = 1
 var caster: Node = null
+var lifetime: float = 5.0
 ## 方向和目标
 var direction: Vector3 = Vector3.ZERO
 var target_pos: Vector3 = Vector3.ZERO
 
 
-## 设置火球数据（由 Skill._execute_projectile_skill 调用）
-func setup(data: SkillResource, level: int = 1, _caster: Node = null) -> void:
+## 统一 setup 签名；duration<=0 时使用内置默认生命周期（5 秒）
+func setup(data: SkillResource, level: int = 1, _caster: Node = null, duration: float = 0.0) -> void:
 	skill_resource = data
 	skill_level = level
 	caster = _caster
+	if duration > 0.0:
+		lifetime = duration
 
 func set_target(target: Vector3):
 	target_pos = target
@@ -29,22 +33,13 @@ func set_target(target: Vector3):
 	set_process(true)
 	
 
-## 生命周期
 func _process(delta: float):
 	if direction == Vector3.ZERO:
 		return
-
 	global_position += direction * speed * delta
 
-	# 到达后销毁
-	#if global_position.distance_to(target_pos) < 0.5:
-		#queue_free()
-	await get_tree().create_timer(5.0).timeout
-	queue_free()
-
 func _ready() -> void:
-	# _ready 中创建销毁定时器
-	var timer := get_tree().create_timer(5.0)
+	var timer := get_tree().create_timer(lifetime)
 	timer.timeout.connect(_on_lifetime_expired)
 
 
@@ -52,26 +47,20 @@ func _on_lifetime_expired() -> void:
 	queue_free()
 
 
+func _on_hit_area_body_entered(body: Node3D) -> void:
+	if not body.is_in_group("enemy"):
+		return
+	_hit_target(body)
+
+
 func _on_hit_area_area_entered(area: Area3D) -> void:
 	if not area.is_in_group("enemy"):
 		return
+	_hit_target(area)
 
+
+func _hit_target(target: Node3D) -> void:
+	## create_skill_attack 已同步 final_damage；Skill.dispatch_attack 统一 apply_attack_data / take_damage / enemy_hit 路由。
 	var attack := AttackData.create_skill_attack(skill_resource, skill_level, caster)
-	
-	# 在这里已经计算了 base_damage，但 final_damage 需要等部位倍率
-	# 由 EnemyBodyPart.enemy_hit() 调用 apply_body_part_multiplier()
-	
-	# 传递给敌人身体部位
-	if area.has_method("enemy_hit"):
-		area.enemy_hit(attack)
-	
-	# 调试输出
-	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	print("🔥 火球命中！")
-	print("   技能: %s (Lv.%d)" % [skill_resource.skill_name, skill_level])
-	print("   基础伤害: %.1f" % attack.base_damage)
-	print("   最终伤害: %.1f (在 Stats 中计算)" % attack.final_damage)
-	print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	
-	# 一次性技能，命中后销毁
+	Skill.dispatch_attack(target, attack)
 	queue_free()

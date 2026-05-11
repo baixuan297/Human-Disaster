@@ -42,6 +42,7 @@ const ACTIONS_WEAPON: Array[StringName] = [
 	&"interactable",
 	&"next_weapon",
 	&"prev_weapon",
+	&"drop",
 ]
 
 const ACTIONS_SKILL: Array[StringName] = [
@@ -61,10 +62,30 @@ var _step_completed_emitted: bool = false
 signal step_changed(new_step: Step)
 ## 本阶段所有操作已完成时发出（TutorialController 用于关闭对应空气墙）
 signal step_completed(step: Step)
+## 欢迎语阶段：玩家在 [method begin_intro_welcome_input_gate] 后按下任意确认键时发出一次
+signal intro_welcome_acknowledged
+
+## 欢迎语「按任意键继续」门控：为 true 时由本节点 [method _input] 消费首次有效输入
+var _awaiting_intro_welcome_ack: bool = false
 
 
 func _ready() -> void:
 	pass
+
+
+func _input(event: InputEvent) -> void:
+	if not _awaiting_intro_welcome_ack:
+		return
+	if not _is_intro_continue_trigger(event):
+		return
+	_awaiting_intro_welcome_ack = false
+	set_process_input(false)
+	# 同一帧内 _process 可能仍会检测 is_action_just_pressed，避免「继续键」计入本阶段
+	if _in_tutorial:
+		_reset_step_completion_state()
+	intro_welcome_acknowledged.emit()
+	if get_viewport():
+		get_viewport().set_input_as_handled()
 
 
 func _process(_delta: float) -> void:
@@ -82,9 +103,43 @@ func enter_tutorial(initial_step: Step = Step.WALK) -> void:
 
 ## 离开教程场景时调用，恢复全部操作
 func exit_tutorial() -> void:
+	cancel_intro_welcome_input_gate()
 	_in_tutorial = false
 	_current_step = Step.FULL
 	step_changed.emit(_current_step)
+
+
+## 欢迎语期间：开始拦截任意键/鼠标键/手柄键（不含滚轮），首次触发后发出 [signal intro_welcome_acknowledged]。
+func begin_intro_welcome_input_gate() -> void:
+	if _awaiting_intro_welcome_ack:
+		return
+	_awaiting_intro_welcome_ack = true
+	set_process_input(true)
+
+
+func cancel_intro_welcome_input_gate() -> void:
+	_awaiting_intro_welcome_ack = false
+	set_process_input(false)
+
+
+func is_awaiting_intro_welcome_ack() -> bool:
+	return _awaiting_intro_welcome_ack
+
+
+func _is_intro_continue_trigger(event: InputEvent) -> bool:
+	if event is InputEventKey:
+		var k := event as InputEventKey
+		return k.pressed and not k.echo
+	if event is InputEventJoypadButton:
+		return (event as InputEventJoypadButton).pressed
+	if event is InputEventMouseButton:
+		var m := event as InputEventMouseButton
+		if not m.pressed:
+			return false
+		var bi := int(m.button_index)
+		return bi != MOUSE_BUTTON_WHEEL_UP and bi != MOUSE_BUTTON_WHEEL_DOWN \
+			and bi != MOUSE_BUTTON_WHEEL_LEFT and bi != MOUSE_BUTTON_WHEEL_RIGHT
+	return false
 
 
 ## 是否处于教程模式
@@ -130,12 +185,9 @@ func _check_step_completion() -> void:
 	_step_completed_emitted = true
 
 
-## 返回“仅本阶段需要高亮”的 action 列表（供键盘 UI 用）
-## 进入下一阶段后，前一阶段的按键不再高亮，只高亮本阶段新引入的按键
-func get_highlight_actions_for_current_step() -> Array[StringName]:
-	if not _in_tutorial:
-		return []
-	match _current_step:
+## 指定步骤对应的高亮 action（与当前是否在教程中无关，供文案等按步骤查询）
+func get_highlight_actions_for_step(step: Step) -> Array[StringName]:
+	match step:
 		Step.WALK:
 			return ACTIONS_WALK.duplicate()
 		Step.JUMP_CROUCH:
@@ -147,6 +199,14 @@ func get_highlight_actions_for_current_step() -> Array[StringName]:
 		Step.FULL:
 			return []
 	return []
+
+
+## 返回“仅本阶段需要高亮”的 action 列表（供键盘 UI 用）
+## 进入下一阶段后，前一阶段的按键不再高亮，只高亮本阶段新引入的按键
+func get_highlight_actions_for_current_step() -> Array[StringName]:
+	if not _in_tutorial:
+		return []
+	return get_highlight_actions_for_step(_current_step)
 
 
 ## 判断某 action 是否属于“本阶段高亮”集合（仅本阶段新教的键高亮，前阶段键回归默认）

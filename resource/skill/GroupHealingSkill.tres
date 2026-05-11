@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SkillResource" load_steps=5 format=3 uid="uid://ccu2w4nqtsgs7"]
+[gd_resource type="Resource" script_class="SkillResource" format=3 uid="uid://ccu2w4nqtsgs7"]
 
 [ext_resource type="PackedScene" uid="uid://c1i86k2gfhfqr" path="res://Scene/skill system/skill_effect/skill_group_healing.tscn" id="1_a5gqp"]
 [ext_resource type="AudioStream" uid="uid://co3kjn1mu3ynq" path="res://素材/sound/skill/group_healing.wav" id="2_wji6n"]
@@ -7,8 +7,9 @@
 
 [resource]
 script = ExtResource("3_wji6n")
-skill_name = "Group Healing"
-description = "Group Headling"
+skill_id = 2
+skill_name = "group healing"
+description = "在脚下展开治疗光环，持续为范围内的玩家和友方单位恢复生命值。"
 icon = ExtResource("2_x1jlj")
 base_damage = 20.0
 base_attack_power = 0.0

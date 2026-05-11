@@ -157,7 +157,7 @@ func _on_hit() -> void:
 		_wait_and_destroy()
 		return
 
-	if collider.is_in_group("enemy") and collider.has_method("enemy_hit"):
+	if collider.is_in_group("enemy"):
 		_apply_damage_to(collider)
 
 	if collider.is_in_group("moveObject") and collider is RigidBody3D:
@@ -186,13 +186,15 @@ func _apply_damage_to(target: Node) -> void:
 		attack.base_damage = dmg
 		attack.is_critical = is_crit
 
-		target.enemy_hit(attack)
+		if target.has_method("enemy_hit"):
+			target.enemy_hit(attack)
+		elif target.has_method("apply_attack_data"):
+			target.apply_attack_data(attack)
 
 		if is_crit:
 			# TODO: 暴击数字 UI 反馈
 			pass
 	else:
-		# 降级：无武器数据时直接调用
 		if target.has_method("enemy_hit"):
 			target.enemy_hit(null)
 

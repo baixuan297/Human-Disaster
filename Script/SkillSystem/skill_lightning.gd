@@ -6,59 +6,50 @@ var skill_level: int = 1
 var caster: Node = null
 
 var duration: float = 3.0
-## 伤害与音效触发间隔（秒）；例如 0.25 表示每 0.25s 一次雷击
+## 伤害与音效触发间隔（秒）
 var tick_interval: float = 0.25
-var timer: float = 0.0
 var tick_timer: float = 0.0
 
-# 记录当前在 AOE 范围内的敌人
 var targets_in_range: Array[Node3D] = []
 
 func _ready() -> void:
-	# 设置初始生存定时器
 	get_tree().create_timer(duration).timeout.connect(func(): queue_free())
 
-## 初始化数据（由 Skill 脚本调用）
-func setup(data: SkillResource, level: int, _caster: Node, _duration: float = 3.0) -> void:
+## 统一 setup 签名；duration<=0 时保留默认值（3 秒），便于手动实例化调试
+func setup(data: SkillResource, level: int, _caster: Node, _duration: float = 0.0) -> void:
 	skill_resource = data
 	skill_level = level
 	caster = _caster
-	duration = _duration
+	if _duration > 0.0:
+		duration = _duration
 
 func _process(delta: float) -> void:
 	tick_timer += delta
-	
-	# 周期性造成伤害
 	if tick_timer >= tick_interval:
 		_apply_tick_damage()
 		tick_timer = 0.0
 
-## 核心伤害逻辑
+
 func _apply_tick_damage() -> void:
-	# 每次 tick 都播放一次雷击音效（使用技能资源的 hit_sound；若未设置则回退到 cast_sound）
 	_play_tick_sound()
+	targets_in_range = targets_in_range.filter(func(n): return is_instance_valid(n))
 	if targets_in_range.is_empty():
 		return
-		
 	for target in targets_in_range:
-		# 确保目标依然有效（没被销毁）且有受伤方法
-		if is_instance_valid(target) and target.has_method("enemy_hit"):
-			var attack = AttackData.create_skill_attack(skill_resource, skill_level, caster)
-			
-			# 如果你希望持续伤害是总伤害的一部分，可以在这里调整
-			# attack.base_damage *= 0.5 
-			
-			target.enemy_hit(attack)
-			
-	# 可以在这里播放“雷击”视觉抖动或声音
-	# print("⚡ 闪电轰击中... 目标数量: ", targets_in_range.size())
-
-func _on_hit_area_area_entered(area: Area3D) -> void:
-	if area.is_in_group("enemy") and not targets_in_range.has(area):
-		targets_in_range.append(area)
+		## 与 skill_fireball 相同：依赖 create_skill_attack 写入的 final_damage
+		var attack := AttackData.create_skill_attack(skill_resource, skill_level, caster)
+		Skill.dispatch_attack(target, attack)
 
 
-## 每次 tick 播放的雷击音效
+func _on_hit_area_body_entered(body: Node3D) -> void:
+	if body.is_in_group("enemy") and not targets_in_range.has(body):
+		targets_in_range.append(body)
+
+
+func _on_hit_area_body_exited(body: Node3D) -> void:
+	targets_in_range.erase(body)
+
+
 func _play_tick_sound() -> void:
 	if skill_resource == null or caster == null:
 		return

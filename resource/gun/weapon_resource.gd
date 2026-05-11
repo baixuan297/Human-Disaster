@@ -40,6 +40,9 @@ enum WeaponSlot {
 ## 武器名字（用作字典 key，请保持唯一且不含空格）
 @export var Weapon_name: String
 
+## 武器轮盘 HUD 用图标（可选；为空时优先用 GameData `icon_path`，再按名字走默认映射）
+@export var wheel_icon: Texture2D
+
 ## 武器稀有度（影响掉落权重和显示颜色）
 @export var rarity: Rarity = Rarity.COMMON
 

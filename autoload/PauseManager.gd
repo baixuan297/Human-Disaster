@@ -42,6 +42,8 @@ func _ready() -> void:
 
 ## 输入处理
 func _input(event: InputEvent) -> void:
+	if TutorialManager and TutorialManager.is_awaiting_intro_welcome_ack():
+		return
 	if event.is_action_pressed("ui_cancel"):
 		_handle_escape_press()
 		get_viewport().set_input_as_handled()

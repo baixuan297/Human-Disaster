@@ -40,7 +40,7 @@ flowchart TB
 - **GeneManager**：Autoload 单例，基因定义缓存、状态管理、槽位/前置检查、属性加成汇总；**20 级前 `get_bonuses()` 视为无加成**；`apply_outgoing_damage_vs_tags` / `get_crit_bonus_damage_from_target_current_hp` 供战斗侧调用。
 - **Stats**：`recalculate_stats()` 叠加基因；`process_effects` 驱动生命回复；`take_damage` 结算固定减伤与受击回复；`gain_experience` 吃经验加成；`get_skill_cooldown_multiplier()` 供技能 CD；四抗性使用 **`base_*_resistance` + 基因**，避免重复叠加。
 - **Player**：`genes_changed.connect(recalculate_stats)`；`_physics_process` 调用 `player_stats.process_effects(delta)`；`CharacterDataManager.restore_to_player` 开头 `GeneManager.setup(UserManager.current_character_class)`。
-- **BaseEnemy**：`combat_tags` + `get_combat_tags()`，受击管线中 `_apply_attacker_gene_modifiers` 对玩家武器/技能应用 `vs_targets` 与暴击生命百分比附加伤害。
+- **BaseEnemy**：`combat_tags`、受击前 **`_apply_attacker_gene_modifiers`**（`vs_targets`、暴击生命百分比附加）；与 **`enemy_template_id`**、起身无敌、近战等并列运行时说明见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**。
 
 ---
 
@@ -177,7 +177,7 @@ flowchart TB
 | `vs_targets` | `[{ "tags":["MECHANICAL"], "damage_multiplier":1.12, "flat_damage":5 }]` | `BaseEnemy` 受击前对玩家攻击修正 |
 | `crit_bonus_vs_current_hp_pct` | 暴击时附加目标当前生命比例 | 武器/技能暴击分支 |
 
-敌人在场景中设置 **`BaseEnemy.combat_tags`**，或设置 **`enemy_template_id`** 指向 `enemies.json` / `/game-data/enemies` 的 `enemy_id`，由 `GameDataManager` 自动同步 **`combat_tags`**（与 `vs_targets.tags` 命名一致，如 `MECHANICAL`、`CYBORG`）。数据见 `StarshipBackend/PSQL_DH/game_data/enemies.json` 的 `combat_tags` 与 `enemy_category`。
+**`combat_tags`**：场景可手写 **`BaseEnemy.combat_tags`**，或填 **`enemy_template_id`** 由 **`GameDataManager`** 从 `enemies.json` / API 同步；标签名须与 **`vs_targets.tags`** 一致（如 `MECHANICAL`、`CYBORG`）。敌人数据与受击全链路见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**；`enemies.json` 路径：`StarshipBackend/PSQL_DH/game_data/enemies.json`。
 
 ---
 

@@ -7,6 +7,7 @@ const _PROFILE_KEYS: Array[String] = [
 	"detection_range",
 	"lose_target_range",
 	"attack_range",
+	"attack_range_slack",
 	"attack_cooldown",
 	"move_speed",
 	"patrol_radius",

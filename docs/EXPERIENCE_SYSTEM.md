@@ -11,7 +11,7 @@
 | **玩家** | `true`（默认） | 由累计 `experience` 公式推导，并受 `max_level` 限制 | 可获得，`gain_experience` 生效 |
 | **敌人** | `false` | 仅 `fixed_combat_level`（在资源或检查器中设置） | 不获得；`gain_experience` 直接返回 `0`，`experience` 恒为 `0` |
 
-敌人应使用如 `resource/stats/enemy_stats.tres` 的配置：`level_derived_from_experience = false`，按需调整 `fixed_combat_level`。击杀敌人仍通过 `BaseEnemy.experience_reward` 给**玩家**的 `player_stats` 加经验，而不是给敌人 Stats。
+敌人应使用如 `resource/stats/enemy_stats.tres` 的配置：`level_derived_from_experience = false`，按需调整 `fixed_combat_level`。击杀敌人仍通过 **`BaseEnemy.experience_reward`** 给**玩家**的 **`player_stats`** 加经验，而不是给敌人 Stats；**`BaseEnemy`** 与敌人模块总览见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**。
 
 ---
 

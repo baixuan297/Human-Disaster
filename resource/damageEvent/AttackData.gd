@@ -1,21 +1,9 @@
-#extends Resource
-#class_name AttackData
-#
-#enum AttackType {
-	#WEAPON,
-	#SKILL,
-#}
-#
-#@export var damage: float
-#@export var source: AttackType
-## 攻击发起者
-#var source_node: Node
-#
-#@export var weapon_data: WeaponData = null
-#@export var skill_data: SkillResource = null
-#
-#var body_part_multiplier: float = 1.0
-
+## AttackData — 武器 / 技能 / 场景伤害统一攻击事件
+##
+## - `base_damage`：工厂方法根据来源（WeaponData / SkillResource / Hazard）写入的原始伤害。
+## - `final_damage`：目标侧 `Stats.take_damage` 实际读取的值；工厂方法保证初始化时 `final_damage == base_damage`。
+## - `apply_body_part_multiplier`：**仅** WEAPON 类型会根据部位倍率刷新 `final_damage`；
+##   SKILL / HAZARD 不在此处动 `final_damage`，以避免覆盖施法者做过的暴击/基因加成。
 extends Resource
 class_name AttackData
 
@@ -60,7 +48,7 @@ static func create_weapon_attack(weapon: WeaponData, attacker: Node = null) -> A
 	attack.source_node = attacker
 	attack.weapon_data = weapon
 	attack.base_damage = weapon.Current_damage if weapon else 0
-	# 注意：final_damage 需要在应用部位倍率后设置
+	## 武器：final_damage 由命中 **EnemyBodyPart.apply_body_part_multiplier** 写入（与技能工厂不同）
 	return attack
 
 
@@ -84,23 +72,21 @@ static func create_skill_attack(skill: SkillResource, skill_level: int, attacker
 	attack.source_node = attacker
 	attack.skill_data = skill
 	attack.base_damage = skill.get_damage(skill_level) if skill else 0.0
-	# 注意：final_damage 需要在应用部位倍率后设置
+	## Stats.take_damage 只读 final_damage；投射物/AOE 等常不经部位倍率直接 apply_attack_data，此处必须与 base 同步。
+	## 命中部位时 apply_body_part_multiplier 仍会按 SKILL 分支把 final_damage 写回 base_damage。
+	attack.final_damage = attack.base_damage
 	return attack
 
 
 ## 伤害计算辅助方法
 ## 应用部位倍率（在命中检测后调用）
+##
+## 注意：仅 WEAPON 根据部位倍率刷新 final_damage；SKILL / HAZARD 保留施法方已经算好的 final_damage
+## （例如暴击加成、基因系数）。部位倍率对技能/场景伤害没有作用时应留空，避免覆盖。
 func apply_body_part_multiplier(multiplier: float) -> void:
 	body_part_multiplier = multiplier
-	
-	# 根据攻击类型决定是否应用倍率
-	match source:
-		AttackType.WEAPON:
-			# 武器攻击受部位倍率影响
-			final_damage = base_damage * body_part_multiplier
-		AttackType.SKILL, AttackType.HAZARD:
-			# 技能/场景伤害不受部位倍率影响
-			final_damage = base_damage
+	if source == AttackType.WEAPON:
+		final_damage = base_damage * body_part_multiplier
 
 ## 调试信息
 func get_debug_info() -> String:

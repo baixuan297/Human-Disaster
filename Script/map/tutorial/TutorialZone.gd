@@ -6,6 +6,8 @@ extends Area3D
 
 
 func _ready() -> void:
+	collision_layer = CollisionLayers.LAYER_TUTORIAL
+	collision_mask = CollisionLayers.LAYER_PLAYER_BODY
 	body_entered.connect(_on_body_entered)
 
 

@@ -49,6 +49,12 @@ func _process(_delta: float) -> void:
 
 
 func _update_mouse_highlight() -> void:
+	if TutorialManager and TutorialManager.is_awaiting_intro_welcome_ack():
+		left_button.visible = false
+		right_button.visible = false
+		top_wheel.visible = false
+		bottom_wheel.visible = false
+		return
 	if not TutorialManager or not TutorialManager.is_in_tutorial():
 		# 非教程：只显示整体鼠标，其余隐藏
 		left_button.visible = false

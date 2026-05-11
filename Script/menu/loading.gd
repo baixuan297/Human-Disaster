@@ -32,7 +32,7 @@ func _ready() -> void:
 		return
 		
 	ResourceLoader.load_threaded_request(next_scene)
-	
+
 	# 随机化
 	randomize()
 	# 加载提示

@@ -19,6 +19,31 @@ var loading_screen = preload("res://Scene/menu/loading.tscn")
 var option_menu_scene = preload("res://Scene/menu/option_menu.tscn")
 var creditos_menu_scene = preload("res://Scene/menu/creditos_menu.tscn")
 
+
+func _ready() -> void:
+	if UserManager.current_character_id.is_empty():
+		return
+	CharacterDataManager.fetch_stats_snapshot_for_menu(_on_main_menu_tutorial_state_loaded)
+
+
+func _on_main_menu_tutorial_state_loaded(ok: bool) -> void:
+	if not ok:
+		return
+	if CharacterDataManager.has_tutorial_completed():
+		return
+	_apply_main_menu_tutorial_lock()
+
+
+func _apply_main_menu_tutorial_lock() -> void:
+	var tip := "完成新手教程后开放"
+	ajuste.disabled = true
+	credito.disabled = true
+	ayuda.disabled = true
+	ajuste.tooltip_text = tip
+	credito.tooltip_text = tip
+	ayuda.tooltip_text = tip
+
+
 func on_back_option_menu():
 	main.visible = true
 	option_menu.queue_free()

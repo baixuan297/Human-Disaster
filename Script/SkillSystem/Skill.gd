@@ -1,12 +1,7 @@
-## Skill.gd — 单个技能运行时实例（完整修复版）
+## Skill — 单个技能运行时实例；由 SkillManager 创建并作为其子节点管理生命周期。
 ##
-## 修复/新增：
-##   1. [FIX]  _execute_dot_skill   — 调用 target 的 stats.apply_dot()（原调用不存在的方法）
-##   2. [NEW]  _execute_debuff_skill — 通过 StatBuff + stats.add_temporary_buff() 实现减益
-##   3. [NEW]  _get_target_stats()  — 统一获取目标 Stats（兼容 .stats 和 .player_stats）
-##   4. [KEEP] 其他所有现有逻辑保持不变（INSTANT / PROJECTILE / AOE / BUFF）
-
-
+## 职责：冷却计时、等级换算、分发到具体 SkillType 的执行函数。
+## 数据来源：所有静态属性从 `skill_resource` 读取，见 `docs/SKILL_SYSTEM.md`。
 class_name Skill
 extends Node
 
@@ -18,11 +13,11 @@ signal cooldown_finished
 # ── 核心属性 ──────────────────────────────────────────────────────────────────
 @export var skill_resource: SkillResource
 
-var current_level:     int   = 1
-var is_on_cooldown:    bool  = false
-var cooldown_remaining:float = 0.0
+var current_level: int = 1
+var is_on_cooldown: bool = false
+var cooldown_remaining: float = 0.0
 
-## 技能所有者（Player / 敌人节点）
+## 技能所有者（Player / 敌人节点）；SkillManager.add_skill 会在复用时刷新此引用
 var owner_node: Node3D
 
 
@@ -34,7 +29,8 @@ func _ready() -> void:
 	if skill_resource == null:
 		push_error("[Skill] skill_resource 未设置!")
 		return
-	print("🔧 技能初始化: %s | CD: %.1fs" % [skill_resource.skill_name, get_cooldown()])
+	if OS.is_debug_build():
+		print("🔧 技能初始化: %s | CD: %.1fs" % [skill_resource.skill_name, get_cooldown()])
 
 
 func _process(delta: float) -> void:
@@ -108,31 +104,11 @@ func _execute_skill(target_position: Vector3, target_node: Node3D) -> void:
 # =============================================================================
 
 ## ── INSTANT（瞬发）────────────────────────────────────────────────────────────
-func _execute_instant_skill(target_position: Vector3, target_node: Node3D) -> void:
+func _execute_instant_skill(_target_position: Vector3, target_node: Node3D) -> void:
 	if target_node == null:
 		return
-
-	var attack := AttackData.create_skill_attack(skill_resource, current_level, owner_node)
-	attack.final_damage = attack.base_damage
-
-	## 暴击判定（通过施法者属性）
-	var caster_stats := _get_owner_stats()
-	if caster_stats and caster_stats.roll_critical():
-		attack.final_damage  = caster_stats.apply_crit_multiplier(attack.final_damage)
-		attack.is_critical   = true
-
-	if caster_stats and target_node.has_method("get_combat_tags"):
-		var tags: Array = target_node.get_combat_tags()
-		attack.final_damage = GeneManager.apply_outgoing_damage_vs_tags(attack.final_damage, tags)
-	if attack.is_critical and caster_stats:
-		var ts_inst := _get_target_stats(target_node)
-		if ts_inst:
-			attack.final_damage += GeneManager.get_crit_bonus_damage_from_target_current_hp(ts_inst.current_health)
-
-	if target_node.has_method("apply_attack_data"):
-		target_node.apply_attack_data(attack)
-	elif target_node.has_method("take_damage"):
-		target_node.take_damage(attack)
+	var attack := _build_skill_attack_with_modifiers(target_node)
+	dispatch_attack(target_node, attack)
 
 
 ## ── PROJECTILE（投射物）──────────────────────────────────────────────────────
@@ -148,7 +124,7 @@ func _execute_projectile_skill(target_position: Vector3) -> void:
 	projectile.global_position = hand_node.global_position if hand_node else owner_node.global_position
 
 	if projectile.has_method("setup"):
-		projectile.setup(skill_resource, current_level, owner_node)
+		projectile.setup(skill_resource, current_level, owner_node, get_duration())
 	if projectile.has_method("set_target"):
 		projectile.set_target(target_position)
 
@@ -163,13 +139,16 @@ func _execute_aoe_skill(target_position: Vector3) -> void:
 	owner_node.get_parent().add_child(aoe_node)
 	aoe_node.global_position = _get_ground_position(target_position)
 
+	## duration<=0 时效果脚本内部会退化为默认值（见 skill_lightning / skill_group_healing）
+	var duration: float = get_duration()
+	if duration <= 0.0:
+		duration = skill_resource.base_duration
 	if aoe_node.has_method("setup"):
-		aoe_node.setup(skill_resource, current_level, owner_node, 3.0)
+		aoe_node.setup(skill_resource, current_level, owner_node, duration)
 
 
 ## ── DOT（持续伤害）────────────────────────────────────────────────────────────
-## 修复：原代码调用 target_node.apply_dot()，但 Player/Enemy 身上均无此方法
-## 修复后：通过 _get_target_stats() 找到 Stats Resource，调用 stats.apply_dot()
+## 通过 _get_target_stats() 找到目标的 Stats Resource，调用 stats.apply_dot() 挂载 DOT。
 func _execute_dot_skill(target_node: Node3D) -> void:
 	if target_node == null:
 		push_warning("[Skill:%s] DOT 目标为 null" % skill_resource.skill_name)
@@ -204,14 +183,16 @@ func _execute_buff_skill(target_position: Vector3) -> void:
 	owner_node.get_parent().add_child(buff_area)
 	buff_area.global_position = _get_ground_position(target_position)
 
+	var duration: float = get_duration()
+	if duration <= 0.0:
+		duration = skill_resource.base_duration
 	if buff_area.has_method("setup"):
-		buff_area.setup(skill_resource, current_level, owner_node, skill_resource.base_duration)
+		buff_area.setup(skill_resource, current_level, owner_node, duration)
 
 
 ## ── DEBUFF（减益）─────────────────────────────────────────────────────────────
-## 新增：通过 StatBuff + stats.add_temporary_buff() 实现属性减益
-## 减益内容：攻击力 -25%（Multiply -0.25），防御力 -25%，持续 get_duration() 秒
-## 可扩展：将减益类型/幅度配置到 SkillResource.metadata 中
+## 通过 StatBuff + stats.add_temporary_buff() 临时削弱目标属性。
+## 当前硬编码为攻防 -25%；后续可按 SkillResource.metadata 配置减益项。
 func _execute_debuff_skill(target_node: Node3D) -> void:
 	if target_node == null:
 		push_warning("[Skill:%s] DEBUFF 目标为 null" % skill_resource.skill_name)
@@ -251,6 +232,42 @@ func _execute_debuff_skill(target_node: Node3D) -> void:
 
 
 # =============================================================================
+# 辅助：伤害构造 / 派发（供瞬发及将来其他类型复用）
+# =============================================================================
+
+## 构造一个考虑暴击、标签、基因加成的技能攻击包。`base_damage` 与 `final_damage` 同步推进。
+func _build_skill_attack_with_modifiers(target_node: Node3D) -> AttackData:
+	var attack := AttackData.create_skill_attack(skill_resource, current_level, owner_node)
+	var caster_stats := _get_owner_stats()
+	if caster_stats and caster_stats.roll_critical():
+		attack.final_damage = caster_stats.apply_crit_multiplier(attack.final_damage)
+		attack.is_critical = true
+	if caster_stats and target_node != null and target_node.has_method("get_combat_tags"):
+		var tags: Array = target_node.get_combat_tags()
+		attack.final_damage = GeneManager.apply_outgoing_damage_vs_tags(attack.final_damage, tags)
+	if attack.is_critical and caster_stats and target_node != null:
+		var target_stats := _get_target_stats(target_node)
+		if target_stats:
+			attack.final_damage += GeneManager.get_crit_bonus_damage_from_target_current_hp(target_stats.current_health)
+	## 与 final_damage 对齐，防止 apply_body_part_multiplier 误伤或其他消费者只读 base_damage
+	attack.base_damage = attack.final_damage
+	return attack
+
+
+## 统一把攻击派发给目标：优先 apply_attack_data，其次 take_damage / enemy_hit。
+## 投射物 / AOE / INSTANT 都应通过此函数派发，避免各处重复的 has_method 分支。
+static func dispatch_attack(target: Node, attack: AttackData) -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	if target.has_method("apply_attack_data"):
+		target.apply_attack_data(attack)
+	elif target.has_method("take_damage"):
+		target.take_damage(attack)
+	elif target.has_method("enemy_hit"):
+		target.enemy_hit(attack)
+
+
+# =============================================================================
 # 辅助：获取 Stats Resource（兼容 enemy.stats 和 Player.player_stats）
 # =============================================================================
 
@@ -266,9 +283,9 @@ func _get_target_stats(target: Node3D) -> Stats:
 	return null
 
 
-## 获取施法者自身的 Stats
+## 获取施法者自身的 Stats（兼顾 owner_node 已释放的场景）
 func _get_owner_stats() -> Stats:
-	if owner_node == null:
+	if owner_node == null or not is_instance_valid(owner_node):
 		return null
 	return _get_target_stats(owner_node)
 
@@ -279,7 +296,7 @@ func _get_ground_position(pos: Vector3) -> Vector3:
 		return pos
 	var space  := owner_node.get_world_3d().direct_space_state
 	var query  := PhysicsRayQueryParameters3D.create(pos + Vector3.UP, pos + Vector3.DOWN * 5.0)
-	query.collision_mask = 1
+	query.collision_mask = CollisionLayers.MASK_WORLD
 	var result := space.intersect_ray(query)
 	return result.position if result else pos
 

@@ -72,8 +72,9 @@ flowchart TB
 
 ### 1.5 技能系统
 
-- **SkillManager**：**autoload 单例**（`project.godot` 注册），Player 在 `_ready` 中 `SkillManager.character = self`，再 `add_skill(...)`、`add_to_skill_bar(...)`，连接 `skill_used`。
-- 技能槽 Skill1/2/3 在 `_input` 中调用 `use_skill_from_bar(slot_index, target_pos)`，目标点由 `get_target_position()`（射线）或 `get_player_position()` 提供。
+- **SkillManager**：**autoload 单例**（`project.godot` 注册），Player 在 `_ready` 中 `SkillManager.character = self`，通过 **`PlayerDefaultSkillLoadout`**（`default_skill_loadout` 或内置 `create_test_loadout()`）`add_skill` / `add_to_skill_bar`，并连接 `skill_used`。
+- **命名**：运行时字典键为 **`SkillResource.skill_name`**；云端 **`/characters/.../skills`** 使用 **`game.skills.name`**（多为中文）。**`SkillResourceRegistry` + `SkillLookup`** 负责双向解析与别名（详见 **[SKILL_SYSTEM.md](SKILL_SYSTEM.md)** 第 10 节）。
+- **输入**：`InputController` 发出 `skill_slot_pressed` → Player → **`SkillManager.use_slot`**；目标点由 `get_target_position()` 或 `get_player_position()`（由默认技能栏条目中 **`use_caster_position_as_target`** 控制）。
 
 ### 1.6 交互系统
 
@@ -112,14 +113,15 @@ flowchart TB
 ### 2.3 调用链摘要
 
 - **捡枪**：Player 射线 → collider 为 WorldWeapon → `pickup(weapon_manager)` → `equip_weapon(data.duplicate(), weapon_scene, viewmodel_scene)` → 实例化 BaseWeapon + 创建 SubViewport(WeaponViewModel) → `switch_to_slot(slot)`（收枪动画 → 拔枪动画 → can_shoot=true）。
+- **丢弃武器**：Player 输入 `drop(G)` → `WeaponManager.request_drop_current_weapon()` → 沿 **当前主相机视线** 生成 `WorldWeapon`（带世界展示模型，弹药保留，可重新拾取）→ 清空当前槽并切回徒手。
 - **射击**：Player → `request_single_shoot()` / `request_auto_shoot()` → WeaponManager `_do_shoot()` → 根据第一/三人称取 Aimray 与 aimrayend，取 viewmodel 的 muzzle 与射线 target → 全自动时射线即时 `_handle_raycast_impact()`（敌人/可动物体）→ `weapon.attack(muzzle, target)` → BaseWeapon 扣弹、实例化子弹并初始化。
 - **换弹**：Player → `request_reload()` → viewmodel `play_reload()` → 等待时长 → `data.do_reload()` → `ammo_changed.emit()`。
 - **弹药 UI**：`WeaponManager.ammo_changed` → Player `_on_ammo_changed` → `Update_Ammo.emit([Current, Reserve])` → `Script/gun/playerAmmoUi.gd` 更新 HBoxContainer 内 CurrentAmmo/Reserve 文本。
 
 ### 2.4 与伤害系统的衔接
 
-- 武器/子弹产生 **AttackData**（WEAPON 类型），敌人需实现 `enemy_hit(attack)`，内部通常调用 `stats.take_damage(attack)`。
-- **Stats.take_damage** 使用 `attack.final_damage`，再减防：`actual_damage = max(raw_damage - current_defense, 0)`，扣血并触发 `health_changed` / `died`。
+- 武器/子弹产生 **AttackData**（WEAPON 类型），敌人经 **bodypart / Hurtboxes** 的 **`enemy_hit(attack)`** → **`BaseEnemy`** → **`stats.take_damage(attack)`**；敌人反击玩家、起身无敌等见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**。
+- **Stats.take_damage** 使用 `attack.final_damage`，再减防：`actual_damage = max(raw_damage - current_defense, 0)`，扣血并触发 `health_changed` / `died`；公式与流程总览见 **[DAMAGE_SYSTEM.md](DAMAGE_SYSTEM.md)**。
 
 ### 2.5 其他相关文件
 
@@ -134,6 +136,7 @@ flowchart TB
 - **TutorialManager**：步骤枚举 WALK → JUMP_CROUCH → FULL，控制 `is_action_allowed(action)`。
 - **Player**：所有移动、跳跃、下蹲、奔跑、射击、换弹、交互、技能、武器切换、自由视角等，在响应前都检查 `TutorialManager.is_action_allowed()`；移动向量由 `_get_tutorial_aware_move_input()` 根据允许的键生成。
 - 教程场景根挂 **TutorialController**，进入时 `enter_tutorial(WALK)`，离开时 `exit_tutorial()`；**TutorialZone**（Area3D）在玩家进入时 `advance_to_step(step)`，用于“走到某区域再解锁蹲跳/全部操作”。
+- **教程虚拟键盘与丢弃**：武器阶段 `TutorialManager` 会高亮 `drop`（默认 **G**）。虚拟按键 `Script/menu/KMSet/key.gd` 中 `KEY_NAME_TO_ACTION` 须包含 **`"G"` → `drop`**，与 `resource/keyBoard/keyboard_83.json` 中行内 **G** 键名一致，否则丢弃不会在虚拟键盘上高亮。教程 Toast 文案中丢弃条目的中文标签见 `Script/map/tutorial/TutorialHints.gd` 的 `ACTION_LABELS["drop"]`。
 
 ---
 

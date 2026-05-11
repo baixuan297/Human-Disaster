@@ -25,7 +25,8 @@ var scenes: Dictionary = {
 	"main_menu": "res://Scene/menu/main_menu3d.tscn",
 	"game": "res://Scene/map/world.tscn",
 	"pause": "res://Scene/menu/pausa.tscn",
-	"training_ground": "res://Scene/map/training/training_ground.tscn"
+	"tutorial": "res://Scene/map/tutorial/tutorial_scene.tscn",
+	"training_ground": "res://Scene/map/training/training_ground.tscn",
 }
 # 这两个的区别是，一个是保存可以快速加载的场景的预设
 # 一个是用来加载场景中的UI，比如背包，地图，抽卡（如果有， 等。
@@ -55,10 +56,12 @@ func _ready() -> void:
 func change_scene(scene_name: String, save_history: bool = true) -> void:
 	if is_loading:
 		push_warning("场景正在加载中，请稍候")
+		GlobalMessage.emit_toast("Cargando escena, por favor espere.", "warning")
 		return
 	
 	if not scenes.has(scene_name):
 		push_error("场景 '%s' 未在场景字典中注册" % scene_name)
+		GlobalMessage.emit_toast("Esta zona no está disponible temporalmente. Inténtelo de nuevo más tarde.", "error")
 		return
 	
 	var scene_path = scenes[scene_name]
@@ -68,6 +71,7 @@ func change_scene(scene_name: String, save_history: bool = true) -> void:
 func change_scene_to_file(path: String, save_history: bool = true) -> void:
 	if is_loading:
 		push_warning("场景正在加载中，请稍候")
+		GlobalMessage.emit_toast("正在加载场景中，请稍候", "warning")
 		return
 	
 	_change_scene_internal(path, save_history)
@@ -76,6 +80,7 @@ func change_scene_to_file(path: String, save_history: bool = true) -> void:
 func instance_scene(scene_name: String, parent: Node = null) -> Node:
 	if not scenes.has(scene_name):
 		push_error("场景 '%s' 未注册" % scene_name)
+		GlobalMessage.emit_toast("暂时无法进入该区域，请稍后再试", "error")
 		return null
 		
 	
@@ -83,6 +88,7 @@ func instance_scene(scene_name: String, parent: Node = null) -> Node:
 	var packed_scene: Resource = load(scene_path)
 	if packed_scene == null or not (packed_scene is PackedScene):
 		push_error("场景资源无效或缺失: %s" % scene_path)
+		GlobalMessage.emit_toast("场景加载异常，请返回主菜单重试", "error")
 		return null
 	var instance = (packed_scene as PackedScene).instantiate()
 	
@@ -147,7 +153,9 @@ func on_scene_loaded(new_scene: Node) -> void:
 
 ## 场景加载失败的回调
 func on_scene_load_failed() -> void:
-	push_error("场景加载失败: %s" % load_scene)
+	var failed_path: String = load_scene
+	push_error("场景加载失败: %s" % failed_path)
+	GlobalMessage.emit_toast("加载失败，正在返回…", "warning")
 	is_loading = false
 	load_scene = ""
 	# 尝试返回上一个场景
@@ -215,6 +223,7 @@ func _wait_for_loading() -> void:
 			
 		else:
 			push_error("场景加载失败: %s" % load_scene)
+			GlobalMessage.emit_toast("加载失败，请稍后再试", "error")
 			is_loading = false
 			return
 

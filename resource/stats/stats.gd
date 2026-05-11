@@ -44,6 +44,8 @@ const DEFAULT_SYNC_BREAKTHROUGH_GATES: Array[int] = [20, 25, 30]
 @export var sync_breakthrough_costs: Dictionary = {}
 ## 已达成的门槛等级（存档 / `sync_breakthroughs_completed` API）
 var sync_breakthroughs_completed: Array[int] = []
+## 新手教程是否已完整通关（仅通关并写入后端后为 true；中途退出不写档，下次仍进教程）
+var tutorial_completed: bool = false
 
 ## 暴击率 0.0~1.0（0.05 = 5%）
 @export var base_critical_rate: float = 0.05
@@ -567,9 +569,9 @@ func get_next_sync_breakthrough_gate() -> int:
 ## 返回空字符串表示成功；否则为可读失败原因
 func attempt_sync_breakthrough_for_next_gate() -> String:
 	if not level_derived_from_experience:
-		return "当前角色不使用经验等级"
+		return "当前无法进行同步突破"
 	if not sync_breakthrough_enabled:
-		return "未启用 SYNC 突破"
+		return "同步突破暂未开放"
 	var g := _sync_first_pending_gate()
 	if g < 0:
 		return "当前无需突破"
@@ -608,6 +610,7 @@ func save_to_dict() -> Dictionary:
 		"thorns_resistance": snappedf(base_thorns_resistance, 0.0001),
 		"other_resistance": snappedf(base_other_resistance, 0.0001),
 		"sync_breakthroughs_completed": sync_breakthroughs_completed.duplicate(),
+		"tutorial_completed": tutorial_completed,
 	}
 
 
@@ -632,6 +635,7 @@ func load_from_dict(serialized_stats: Dictionary) -> void:
 		for x in sb:
 			sync_breakthroughs_completed.append(int(x))
 		sync_breakthroughs_completed.sort()
+	tutorial_completed = bool(stats_payload.get("tutorial_completed", false))
 	if level_derived_from_experience:
 		_mute_level_up_signal = true
 		experience = maxf(0.0, float(stats_payload.get("experience", 0.0)))

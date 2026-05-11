@@ -6,54 +6,77 @@
 
 ```mermaid
 flowchart TB
-    subgraph input [输入]
-        Shoot[request_single_shoot / request_auto_shoot]
-        Reload[request_reload]
-        Switch[switch_to_primary / secondary / hand]
-    end
-    subgraph manager [WeaponManager]
-        DoShoot[_do_shoot]
-        Equip[equip_weapon]
-        SwitchSlot[switch_to_slot]
-    end
-    subgraph world [场景]
-        WorldWeapon[WorldWeapon]
-    end
-    subgraph weapon [武器实例]
-        BaseWeapon[BaseWeapon.attack]
-        ViewModel[WeaponViewModel]
-    end
-    subgraph projectile [弹道]
-        Bullet[Bullet]
-    end
-    subgraph damage [伤害]
-        AttackData[AttackData.create_weapon_attack]
-        Enemy[BaseEnemy.apply_attack_data]
-        Stats[Stats.take_damage]
-    end
-    subgraph ui [UI]
-        AmmoUI[playerAmmoUi]
-    end
-    Shoot --> DoShoot
-    DoShoot --> BaseWeapon
-    BaseWeapon --> Bullet
-    Bullet --> AttackData
-    AttackData --> Enemy
-    Enemy --> Stats
-    WorldWeapon -->|"pickup"| Equip
-    Equip --> SwitchSlot
-    Reload --> ViewModel
-    Switch --> SwitchSlot
-    manager -->|"ammo_changed"| AmmoUI
+	subgraph input [输入]
+		Shoot[request_single_shoot / request_auto_shoot]
+		Reload[request_reload]
+		Switch[switch_to_primary / secondary / hand]
+	end
+	subgraph manager [WeaponManager]
+		DoShoot[_do_shoot]
+		Equip[equip_weapon]
+		SwitchSlot[switch_to_slot]
+	end
+	subgraph world [场景]
+		WorldWeapon[WorldWeapon]
+	end
+	subgraph weapon [武器实例]
+		BaseWeapon[BaseWeapon.attack]
+		ViewModel[WeaponViewModel]
+	end
+	subgraph projectile [弹道]
+		Bullet[Bullet]
+	end
+	subgraph damage [伤害]
+		AttackData[AttackData.create_weapon_attack]
+		Enemy[BaseEnemy.apply_attack_data]
+		Stats[Stats.take_damage]
+	end
+	subgraph ui [UI]
+		AmmoUI[playerAmmoUi]
+	end
+	Shoot --> DoShoot
+	DoShoot --> BaseWeapon
+	BaseWeapon --> Bullet
+	Bullet --> AttackData
+	AttackData --> Enemy
+	Enemy --> Stats
+	WorldWeapon -->|"pickup"| Equip
+	Equip --> SwitchSlot
+	Reload --> ViewModel
+	Switch --> SwitchSlot
+	manager -->|"ammo_changed"| AmmoUI
 ```
+
+- 敌人侧 **Hurtboxes / bodypart → BaseEnemy → Stats** 与起身无敌等见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**；上图中 **Enemy** 表示命中后进入敌人伤害管线的概括。
+
+## 0. 静态数据 JSON（`weapons.json`）
+
+| 项 | 说明 |
+|----|------|
+| **路径** | `StarshipBackend/PSQL_DH/game_data/weapons.json` |
+| **ID 方案** | `[40][分类2位][编号3位]`，如 `4001001 = 手枪(01) + 第 001 号` |
+| **分类** | `01`=手枪, `02`=冲锋枪, `03`=突击步枪, `04`=霰弹枪, `05`=狙击步枪, `06`=重武器 |
+| **字段** | `weapon_id`、`name`、`description`、`weapon_type`（PISTOL / SMG / RIFLE …）、`weapon_slot`（PRIMARY / SECONDARY）、`rarity`、`element`（PHYSICAL / LASER / DARK_MATTER / BIOLOGY）、`max_level`、`**icon_path**`（`res://` 纹理，入库 `game.weapons.icon_path`，与客户端 `WeaponData.wheel_icon` 对齐）、`stats`（含 `base_damage`、`crit_rate`、`crit_multiplier`、`fire_rate`、`reload_time`、`magazine`、`max_reserve_ammo`、`auto_fire`）、`metadata` |
+| **`implemented`** | `true` = 已在 Godot 中有 `WeaponData .tres` + 场景 |
+| **已实现武器** | PISTOL (`4001001`)、MP7 (`4002001`) |
+| **后端** | `GameWeapon` model → `/game-data/weapons` API → `GameDataManager.get_weapon()` |
+
+### 武器 HUD（WeaponWheel）槽位约定
+
+- **常驻显示**：`UI/WeaponWheel` 为右下角 **常驻** 三槽 HUD（`WeaponWheel.gd`），**不再**使用 Tab 展开式轮盘；武器切换仍由 `change_weapon1/2`、`change_hand`、滚轮等输入驱动 `WeaponManager`。
+- **UI 子节点**：`WeaponWheel` 下固定三个 `WeaponWheelSlot`：**Weapon1** = 徒手（刀图标）、**Weapon2** = 副武器槽、**Weapon3** = 主武器槽（与 `WeaponManager` 的 `SLOT_HAND` / `SLOT_SECONDARY` / `SLOT_PRIMARY` 一一对应）。
+- **图标来源优先级**（`Player._resolve_weapon_wheel_icon`）：`WeaponData.wheel_icon`（`.tres`）→ `GameDataManager` 静态表 `icon_path`（`weapons.json` / DB）→ 按 `Weapon_name` 的本地 fallback。
+- **空槽占位**：无武器时 Weapon2/3 显示 `—` 与 `wheel_slot_empty.png`（或回退 `bullet_icon.png`）。
+
+---
 
 ## 1. 模块职责与依赖关系
 
 ```
 Player                    → 只调用 WeaponManager API + 连接信号，不持有武器/子弹节点
   └── Weapon_manager      → 唯一武器入口：装备/切换/射击/换弹，持有槽位与 viewmodel
-        ├── BaseWeapon    → 射速冷却 + 子弹生成（由 Manager 调用 attack(muzzle, target)）
-        └── SubViewport   → 内嵌 WeaponViewModel（动画、晃动、muzzle 位置）
+		├── BaseWeapon    → 射速冷却 + 子弹生成（由 Manager 调用 attack(muzzle, target)）
+		└── SubViewport   → 内嵌 WeaponViewModel（动画、晃动、muzzle 位置）
 
 WorldWeapon（场景可拾取）  → 持有 data + weapon_scene + viewmodel_scene；pickup(weapon_manager) 时传入
 Bullet                    → 仅由 BaseWeapon._fire_projectile() 实例化，不直接被 Player/Manager 引用
@@ -83,12 +106,14 @@ AudioManager（autoload）   → 武器音效入口：play_weapon_shoot / play_d
 | 空仓     | 弹匣空时按射击 → `_play_dry_fire()`（一次按下只播一次，松开重置）→ `request_reload()` |
 | 换弹     | Player 输入 → `request_reload()` → 若有 audio_data 播换弹音 → viewmodel `play_reload()` → 等待 → `data.do_reload()` → `ammo_changed.emit()` |
 | 切枪     | `switch_to_primary/secondary/hand()` 或滚轮 `next_weapon`/`prev_weapon` → `switch_to_slot()` / `switch_to_next()` / `switch_to_prev()`；切到武器时若有 audio_data 播装备音 |
+| 丢弃武器 | Player 输入 `drop(G)` → `WeaponManager.request_drop_current_weapon()` → 沿 **当前主相机视线**（≈鼠标瞄准方向）生成 `WorldWeapon`（世界展示模型由 `WorldWeapon.create_runtime_pickup` 实例化并去碰撞/禁用逻辑帧）→ 清空槽位并切回徒手；丢弃物使用 `WeaponData.duplicate(false)` 保留弹药等字段并避免深拷贝大资源带来的卡顿 |
 | 弹药 UI  | `WeaponManager.ammo_changed` → Player `_on_ammo_changed` → `Update_Ammo.emit()` → playerAmmoUi 更新文本 |
 
 ## 3. 槽位与滚轮切换
 
 - **槽位**：`SLOT_HAND(-1)` / `SLOT_PRIMARY(0)` / `SLOT_SECONDARY(1)`。
 - **滚轮**：输入 `next_weapon` / `prev_weapon` 映射到 `switch_to_next()` / `switch_to_prev()`，按顺序循环：primary → secondary → hand → primary；空槽自动跳过。
+- **丢弃**：输入 `drop`（默认 G）仅对当前持枪槽生效（徒手不可丢）；丢弃物会携带当前弹药并可再次拾取。
 
 ## 4. 音效与第一人称显示
 
