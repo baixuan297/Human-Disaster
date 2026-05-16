@@ -128,7 +128,7 @@
 
 ## 九、数据库与后端连接（建议）
 
-以下在 **`docs/DATABASE_SCHEMA.md`** 中多已存在表定义；缺口主要在 **FastAPI 路由与 Godot `ApiManager`** 是否暴露。
+以下在 **`StarshipBackend/docs/DATABASE_SCHEMA.md`** 中多已存在表定义；缺口主要在 **FastAPI 路由与 Godot `ApiManager`** 是否暴露。
 
 | 主题 | 是否新建表 | 建议 |
 |------|------------|------|

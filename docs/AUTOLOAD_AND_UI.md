@@ -79,4 +79,4 @@ flowchart LR
 | [CharacterDataManager.md](CharacterDataManager.md) | 存档与快照 |
 | [SaveManager.md](SaveManager.md) | 设置文件格式与职责边界 |
 
-客户端测试命令见仓库根目录 [TESTING.md](../../docs/TESTING.md)（无头单元测试、`api_test.tscn`）。
+客户端测试命令见仓库根目录 [TESTING.md](../../StarshipBackend/docs/TESTING.md)（无头单元测试、`api_test.tscn`）。

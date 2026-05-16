@@ -224,7 +224,7 @@ var player = CharacterDataManager.get_player()
 | [GameDataManager.md](GameDataManager.md) | 静态数据加载 |
 | [DAMAGE_SYSTEM.md](DAMAGE_SYSTEM.md) | 伤害与 Stats 流程 |
 | [GENE_SYSTEM.md](GENE_SYSTEM.md) | 基因模块（待接入） |
-| `test/api_test.gd` | 经 APIManager 覆盖主要 API，用于连通性、与后端契约及架构联调（见 `docs/TESTING.md`） |
+| `test/api_test.gd` | 经 APIManager 覆盖主要 API，用于连通性、与后端契约及架构联调（见 `StarshipBackend/docs/TESTING.md`） |
 
 ---
 

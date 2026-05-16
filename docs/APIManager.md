@@ -11,7 +11,7 @@ APIManager 是项目中用于与后端 HTTP API 通信的全局单例（autoload
 |----|------|
 | **脚本路径** | `autoload/APIManager.gd` |
 | **Autoload 名称** | `ApiManager`（见 `project.godot`） |
-| **API 根地址** | `API_BASE_URL = "http://127.0.0.1:8000"`（NAT 端口转发宿主机→虚拟机 8000；桥接时改为虚拟机 IP，见仓库 `docs/NETWORK_DEPLOYMENT.md`） |
+| **API 根地址** | `API_BASE_URL = "http://127.0.0.1:8000"`（NAT 端口转发宿主机→虚拟机 8000；桥接时改为虚拟机 IP，见仓库 `StarshipBackend/docs/NETWORK_DEPLOYMENT.md`） |
 | **请求超时** | `timeout_sec = 25.0` 秒 |
 | **认证方式** | 请求头 `Authorization: Bearer <jwt_token>`，登录成功后自动保存 `jwt_token` |
 
