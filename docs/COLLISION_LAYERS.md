@@ -1,4 +1,5 @@
-# 三维物理层（Layer）与掩码（Mask）约定
+﻿# 三维物理层（Layer）与掩码（Mask）约定
+[文档索引](README.md) | [Índice](README.es.md)
 
 本文档与 `project.godot` 中 `[layer_names]`、`Script/core/collision_layers.gd`（`class_name CollisionLayers`）保持一致，便于射线、技能范围与角色移动统一配置。
 

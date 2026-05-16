@@ -1,4 +1,5 @@
-# SaveManager 说明文档
+﻿# SaveManager 说明文档
+[文档索引](README.md) | [Índice](README.es.md)
 
 SaveManager 是负责**设置存档**的全局单例（autoload）。**游戏存档**（背包、技能、属性）由 `CharacterDataManager` 通过 **API 云端** 保存；**本地加密快存**（防闪退、版本号）由 **`LocalCharacterSave`** 负责，不在此模块。
 

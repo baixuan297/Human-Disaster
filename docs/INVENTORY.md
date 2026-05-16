@@ -1,4 +1,5 @@
-# 背包系统（Inventory）说明文档
+﻿# 背包系统（Inventory）说明文档
+[文档索引](README.md) | [Índice](README.es.md)
 
 本文档说明项目中与 **背包 / 物品（Inventory）** 相关的全部逻辑、数据流与扩展方式。背包功能由插件 **xuanBag** 提供，通过全局单例 **InventoryManager** 与场景 **InventoryUI** 配合使用。
 

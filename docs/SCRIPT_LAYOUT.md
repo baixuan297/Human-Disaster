@@ -1,4 +1,5 @@
-# Script 目录结构说明
+﻿# Script 目录结构说明
+[文档索引](README.md) | [Índice](README.es.md)
 
 `res://Script/` 下为游戏玩法与 UI 逻辑，按领域分子目录。**新增脚本时请放入对应域**，并在模块文档（如 `WEAPON_SYSTEM.md`）中补充数据流或节点约定。
 

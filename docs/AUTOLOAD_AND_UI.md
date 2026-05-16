@@ -1,4 +1,5 @@
-# Autoload 与 UI 流程说明
+﻿# Autoload 与 UI 流程说明
+[文档索引](README.md) | [Índice](README.es.md)
 
 本文档概括 `project.godot` 中注册的 Autoload 职责、依赖顺序及与场景/UI 的协作关系。细粒度 API 见各模块专文（如 `APIManager.md`、`CharacterDataManager.md`）。
 
@@ -13,8 +14,9 @@
 | 1 | SettingData | SettingData.gd | 运行时设置状态、默认值 |
 | 2 | SettingSignal | SettingSignal.gd | 设置变更/加载信号 |
 | 3 | SaveManager | SaveManager.gd | 设置加密写入 `user://SettingsData` |
-| 4 | ApiManager | APIManager.gd | HTTP、JWT、超时 |
-| 5 | GameDataManager | GameDataManager.gd | 静态 items/skills/genes |
+| 4 | LocalCharacterSave | LocalCharacterSave.gd | 本地角色快存（与云端存档配合） |
+| 5 | ApiManager | APIManager.gd | HTTP、JWT、超时 |
+| 6 | GameDataManager | GameDataManager.gd | 静态 items/weapons/skills/genes/enemies |
 | … | GeneManager / CharacterDataManager / … | — | 见下节 |
 | … | SceneManager | SceneManager.gd | 场景切换、UI 工厂路径 |
 | … | GBMssage | GlobalMessage.tscn | 全局文字提示（autoload 名为 **GBMssage**，历史拼写） |

@@ -9,6 +9,8 @@ extends Control
 @onready var forget_password: LinkButton = $Panel/MarginContainer/VBoxContainer/HBoxContainer/forget_password
 @onready var message_label: Label = $Panel/message
 @onready var Login_panel: Panel = $Panel
+@onready var button: Button = $Control/Button
+
 
 
 ## Scene instantiate
@@ -71,7 +73,8 @@ func _try_auto_login():
 
 
 func _on_close_button_pressed() -> void:
-	queue_free()
+	button.visible = true
+	Login_panel.visible = false
 
 
 func _on_forget_password_pressed() -> void:
@@ -83,3 +86,8 @@ func toogle_login_menu(state: bool):
 		Login_panel.show()
 	else :
 		Login_panel.hide()
+
+
+func _on_button_pressed() -> void:
+	Login_panel.visible = true
+	button.visible = false

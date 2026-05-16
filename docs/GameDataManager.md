@@ -1,4 +1,5 @@
-# GameDataManager 说明文档
+﻿# GameDataManager 说明文档
+[文档索引](README.md) | [Índice](README.es.md)
 
 GameDataManager 是**静态游戏数据**的全局加载与查询入口，在启动时从 API 拉取物品、**武器**、技能、基因、**敌人模板**的定义数据，供全项目只读查询。
 

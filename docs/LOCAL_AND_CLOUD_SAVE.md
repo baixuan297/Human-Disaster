@@ -1,4 +1,5 @@
-# 本地与云端存档方案
+﻿# 本地与云端存档方案
+[文档索引](README.md) | [Índice](README.es.md)
 
 本文描述 **Godot 客户端** 与 **FastAPI `/characters/...`** 之间的存档分工、同步策略、版本号语义与后续可扩展点（服务端乐观锁等）。**实现入口**：`LocalCharacterSave.gd` + `CharacterDataManager.gd`。
 
@@ -100,11 +101,11 @@
 
 | 数据 | 当前去向 | 建议本地缓存 | 建议云端 / 库 |
 |------|----------|--------------|---------------|
-| **物品/技能/基因/敌人定义** | `GameDataManager` 内存，API `/game-data/*` | ✅ **`user://game_data_definitions_cache.enc`**（全量成功拉取后写入；任一拉取失败时 **`try_restore_definitions_from_disk_cache()`** 兜底） | 已有表 `game.items/skills/genes/enemies`；客户端不直连库 |
-| **角色 Stats / 背包 / 技能 / 基因 / scene_state** | 已进 `.lcs` 与 API | ✅ 已实现 | 已有 `character_stats`、`inventory`、`character_skills`、基因相关表 |
-| **教程运行时步骤**（非 `tutorial_completed`） | 仅 `TutorialManager` 内存 | ✅ **`client_blob`**（`tutorial_step`、`tutorial_in_progress` 等） | 可选：写入 `character_stats.extra` JSON 或独立 `character_tutorial_state` |
-| **当前场景路径**（与 `scene_state` 重叠） | `scene_state.scene_path` 已持久化 | ✅ `client_blob.current_scene_path` 作冗余/崩溃瞬间补充 | 已含于 `scene_state` |
-| **技能冷却剩余** | `SkillManager.save_skills_data` 已在快照 | ✅ 已在 `.lcs` | 已有 `character_skills`；若后端只存等级不存 CD，可扩展列或 JSON |
+| **物品/技能/基因/敌人定义** | `GameDataManager` 内存，API `/game-data/*` | 已做：`user://game_data_definitions_cache.enc`（全量成功拉取后写入；失败时 `try_restore_definitions_from_disk_cache()` 兜底） | 已有表 `game.items/skills/genes/enemies`；客户端不直连库 |
+| **角色 Stats / 背包 / 技能 / 基因 / scene_state** | 已进 `.lcs` 与 API | 已实现 | 已有 `character_stats`、`inventory`、`character_skills`、基因相关表 |
+| **教程运行时步骤**（非 `tutorial_completed`） | 仅 `TutorialManager` 内存 | 已做：`client_blob`（`tutorial_step`、`tutorial_in_progress` 等） | 可选：写入 `character_stats.extra` JSON 或独立 `character_tutorial_state` |
+| **当前场景路径**（与 `scene_state` 重叠） | `scene_state.scene_path` 已持久化 | 已做：`client_blob.current_scene_path` 作冗余/崩溃瞬间补充 | 已含于 `scene_state` |
+| **技能冷却剩余** | `SkillManager.save_skills_data` 已在快照 | 已在 `.lcs` | 已有 `character_skills`；若后端只存等级不存 CD，可扩展列或 JSON |
 | **任务 / 成就 / 地图发现** | DB 有 `character_quests`、`character_achievements`、`discovered_locations`，**Godot 当前未接 FastAPI** | 本地可增 **`progress_blob`**（与 `client_blob` 并列）待接 API 后删除 | **需新增或补齐** `GET/POST /characters/{id}/quests` 等路由 + 与 `game.*` 表对齐 |
 | **角色综合进度**（等级条、大地图坐标历史） | `game.character_progress` 在 schema 中存在 | 可镜像进 `.lcs` 的 `client_blob` 或独立节 | 确认 ORM/路由是否实现；若无则迁移 + `main.py` |
 | **货币钱包** | `game.character_currencies` | 本地可缓存最后已知值 | 需 **`/characters/{id}/currencies`** 读写与反作弊校验 |

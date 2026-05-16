@@ -1,4 +1,5 @@
-# CharacterDataManager 说明文档
+﻿# CharacterDataManager 说明文档
+[文档索引](README.md) | [Índice](README.es.md)
 
 CharacterDataManager 是**角色数据加载/保存**的全局统一入口，负责快照/恢复（减少场景切换时的 API 调用）和存档到 API。
 

@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Desastre Humano"
 config/tags=PackedStringArray("3d")
-run/main_scene="res://Scene/menu/main_menu3d.tscn"
+run/main_scene="uid://bdjlqitt4lcq2"
 config/features=PackedStringArray("4.6", "Forward Plus")
 boot_splash/image="res://素材/image/mainMenu/icon-title 1080x1080px.png"
 config/icon="res://素材/image/mainMenu/icon-title 1080x1080px.png"

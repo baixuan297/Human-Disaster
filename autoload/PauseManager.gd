@@ -53,11 +53,14 @@ func _handle_escape_press() -> void:
 	match get_current_state():
 		PauseState.NONE:
 			open_pause_menu()
-		#PauseState.INVENTORY:
-			#close_inventory()
 		PauseState.PAUSED:
+			# 暂停菜单上叠了设置等子界面时，先逐层关闭，再关暂停
+			if pause_menu_instance and is_instance_valid(pause_menu_instance):
+				if pause_menu_instance.has_method(&"try_close_top_overlay"):
+					if pause_menu_instance.try_close_top_overlay():
+						return
 			close_pause_menu()
-		_: # 对话或过场中不处理
+		_:
 			pass
 
 

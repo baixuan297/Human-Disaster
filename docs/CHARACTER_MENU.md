@@ -1,4 +1,5 @@
-# 角色菜单与属性面板
+﻿# 角色菜单与属性面板
+[文档索引](README.md) | [Índice](README.es.md)
 
 本文档描述**角色信息菜单**（character menu）及其中的**属性面板**（attributes panel）的架构与资源约定。
 

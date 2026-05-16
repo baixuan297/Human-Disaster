@@ -1,4 +1,5 @@
-# APIManager 说明文档
+﻿# APIManager 说明文档
+[文档索引](README.md) | [Índice](README.es.md)
 
 APIManager 是项目中用于与后端 HTTP API 通信的全局单例（autoload 中注册为 `ApiManager`），负责发送请求、携带 JWT、超时处理与统一回调。
 
@@ -182,7 +183,7 @@ ApiManager.save_stats(character_id, player_stats.save_to_dict(), func(success, r
 2. **后端对接**：各路径的请求/响应是否与当前 FastAPI 路由及 JSON 字段一致（契约校验）。  
 3. **架构一致**：所有调用走本模块 **`ApiManager` 封装**（与 `CharacterDataManager` / `GameDataManager` 相同入口），确保联调结果能代表正式游戏内的 API 使用方式。
 
-运行 `test/api_test.tscn` 后按控制台步骤查看 ✅/❌。覆盖路径如下：
+运行 `test/api_test.tscn` 后按控制台步骤查看通过/失败。覆盖路径如下：
 
 | 序号 | 路径 | 说明 |
 |------|------|------|
