@@ -1,9 +1,7 @@
-﻿# 伤害系统说明文档
-[文档索引](README.md) | [Índice](README.es.md)
+# 伤害系统说明文档
+[← 文档索引](../README.md#文档索引)
 
-本文档描述项目中**伤害计算**、**受击流程**与 **Stats** 的架构，涵盖角色、敌人、技能、武器的统一伤害路径。
-
-**文档分工**：敌人 AI、近战距离判定、起身无敌、生成贴地等 **不写在此**；见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**。
+**伤害 / Stats / AttackData** 的主文档。敌人 AI、近战判定、起身无敌等见 [ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)。
 
 ---
 
@@ -127,7 +125,7 @@ sequenceDiagram
   - 按目标 **`combat_tags`** 与基因 `vs_targets.tags` 交集，应用 `damage_multiplier` 与 `flat_damage`（`GeneManager.apply_outgoing_damage_vs_tags`）。
   - 若暴击，附加 **`crit_bonus_vs_current_hp_pct × 目标当前生命`**。
 - 技能瞬发（`Skill._execute_instant_skill`）在命中前对敌人做相同修正。
-- 详见 [GENE_SYSTEM.md](GENE_SYSTEM.md)。
+- 基因字段定义见 [GENE_SYSTEM.md](GENE_SYSTEM.md)。
 
 ---
 
@@ -153,6 +151,6 @@ sequenceDiagram
 | `Script/poison_pool.gd` | 毒池场景伤害，必须注入 Hazard 资源（无则 push_warning） |
 | `Script/player/Player.gd` | apply_attack_data、_on_stats_health_changed、health_changed 中继 |
 | `Script/player/PlayerUIController.gd` | on_health_changed 更新血条 UI |
-| `Script/enemy/BaseEnemy.gd` | 受击、起身无敌、DOT、`_on_died` 等（见 [ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)） |
+| `Script/enemy/BaseEnemy.gd` | 受击、起身无敌、DOT、`_on_died` 等 |
 | `Script/enemy/enemy.gd` | `_hit_finished` → `EnemyMeleeFsm.on_hit_finished` |
 | `Script/enemy/EnemyMeleeFsm.gd` | 近战状态与出手命中判定 |

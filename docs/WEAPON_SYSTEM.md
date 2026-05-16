@@ -1,7 +1,7 @@
 ﻿# 武器系统架构说明
-[文档索引](README.md) | [Índice](README.es.md)
+[← 文档索引](../README.md#文档索引)
 
-本文档描述项目中武器调用机制、解耦设计、音效与可维护性要点。
+**武器 / WeaponManager / 弹道** 的主文档。
 
 ## 武器系统数据流
 
@@ -48,13 +48,13 @@ flowchart TB
 	manager -->|"ammo_changed"| AmmoUI
 ```
 
-- 敌人侧 **Hurtboxes / bodypart → BaseEnemy → Stats** 与起身无敌等见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**；上图中 **Enemy** 表示命中后进入敌人伤害管线的概括。
+- 图中 **Enemy** 表示命中后进入敌人伤害管线（起身无敌等见 [ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)）。
 
 ## 0. 静态数据 JSON（`weapons.json`）
 
 | 项 | 说明 |
 |----|------|
-| **路径** | `StarshipBackend/PSQL_DH/game_data/weapons.json` |
+| **数据来源** | 启动时 `GameDataManager` 从 `/game-data/weapons` 拉取（字段见 [GameDataManager.md](GameDataManager.md)） |
 | **ID 方案** | `[40][分类2位][编号3位]`，如 `4001001 = 手枪(01) + 第 001 号` |
 | **分类** | `01`=手枪, `02`=冲锋枪, `03`=突击步枪, `04`=霰弹枪, `05`=狙击步枪, `06`=重武器 |
 | **字段** | `weapon_id`、`name`、`description`、`weapon_type`（PISTOL / SMG / RIFLE …）、`weapon_slot`（PRIMARY / SECONDARY）、`rarity`、`element`（PHYSICAL / LASER / DARK_MATTER / BIOLOGY）、`max_level`、`**icon_path**`（`res://` 纹理，入库 `game.weapons.icon_path`，与客户端 `WeaponData.wheel_icon` 对齐）、`stats`（含 `base_damage`、`crit_rate`、`crit_multiplier`、`fire_rate`、`reload_time`、`magazine`、`max_reserve_ammo`、`auto_fire`）、`metadata` |

@@ -1,5 +1,5 @@
-﻿# GameDataManager 说明文档
-[文档索引](README.md) | [Índice](README.es.md)
+# GameDataManager 说明文档
+[← 文档索引](../README.md#文档索引)
 
 GameDataManager 是**静态游戏数据**的全局加载与查询入口，在启动时从 API 拉取物品、**武器**、技能、基因、**敌人模板**的定义数据，供全项目只读查询。
 
@@ -13,7 +13,7 @@ GameDataManager 是**静态游戏数据**的全局加载与查询入口，在启
 | **Autoload 名称** | `GameDataManager` |
 | **依赖** | ApiManager |
 | **数据来源** | `/game-data/items`、`/game-data/weapons`、`/game-data/skills`、`/game-data/genes`、`/game-data/enemies`（无需 token） |
-| **本地磁盘缓存** | 全量拉取成功后写入 **`user://game_data_definitions_cache.enc`**（加密）；任一请求失败时尝试 **`try_restore_definitions_from_disk_cache()`** 作为离线兜底（需曾成功拉取过）。详见 [LOCAL_AND_CLOUD_SAVE.md](LOCAL_AND_CLOUD_SAVE.md) |
+| **本地磁盘缓存** | 全量拉取成功后写入 **`user://game_data_definitions_cache.enc`**（加密）；失败时 `try_restore_definitions_from_disk_cache()`。策略见 [LOCAL_AND_CLOUD_SAVE.md](LOCAL_AND_CLOUD_SAVE.md) |
 
 ---
 
@@ -139,9 +139,7 @@ flowchart TB
 | `get_enemy_combat_tags(enemy_id: int) -> Array[String]` | 大写标签，供 `BaseEnemy` 同步 |
 | `get_all_enemies() -> Array` | 所有敌人定义 |
 
-场景里在 **`BaseEnemy.enemy_template_id`** 填与 `enemies.json` 一致的 `enemy_id`，`_ready` 会用静态数据覆盖 `combat_tags`，与基因 `vs_targets.tags` 对齐。
-
-敌人字段、`ai_profile`、近战与受击运行时：**[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**。
+场景里在 **`BaseEnemy.enemy_template_id`** 填与库表一致的 `enemy_id`，`_ready` 会同步 `combat_tags` 等字段。
 
 ---
 

@@ -1,7 +1,7 @@
-﻿# Autoload 与 UI 流程说明
-[文档索引](README.md) | [Índice](README.es.md)
+# Autoload 与 UI 流程说明
+[← 文档索引](../README.md#文档索引)
 
-本文档概括 `project.godot` 中注册的 Autoload 职责、依赖顺序及与场景/UI 的协作关系。细粒度 API 见各模块专文（如 `APIManager.md`、`CharacterDataManager.md`）。
+本文档是 **Autoload 加载顺序、PauseManager、UIManager** 的主说明。HTTP 路径见 [APIManager.md](APIManager.md)；角色存档见 [CharacterDataManager.md](CharacterDataManager.md)。
 
 ---
 
@@ -68,15 +68,3 @@ flowchart LR
 - 当前为**占位**：`SignalBus.gd` 内信号与 `debug_print_connections` 均保留为注释，不参与运行。
 - 若将来要启用全局总线，取消注释并统一在各模块 `emit` 即可。
 
----
-
-## 5. 相关文档
-
-| 文档 | 内容 |
-|------|------|
-| [README.md](README.md) | 模块索引 |
-| [APIManager.md](APIManager.md) | HTTP 与接口列表 |
-| [CharacterDataManager.md](CharacterDataManager.md) | 存档与快照 |
-| [SaveManager.md](SaveManager.md) | 设置文件格式与职责边界 |
-
-客户端测试命令见仓库根目录 [TESTING.md](../../StarshipBackend/docs/TESTING.md)（无头单元测试、`api_test.tscn`）。

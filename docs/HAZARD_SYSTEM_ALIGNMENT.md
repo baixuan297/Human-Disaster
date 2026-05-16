@@ -16,7 +16,7 @@
 |------|------|------|
 | `DesastreHuman.sql` | ✅ | hazard_type_enum 枚举定义 + 四抗性列（单一基线） |
 
-**部署**：**空库**执行 `psql -v ON_ERROR_STOP=1 -f StarshipBackend/PSQL_DH/DesastreHuman.sql`。已有库结构变更请单独写增量 SQL 或重建库。
+**部署**：游戏 API 使用的 PostgreSQL 需包含 `game.character_stats` 中四抗性等列；库表由服务端部署流程初始化，本客户端文档不描述 SQL 脚本路径。
 
 ## 三、后端 API
 

@@ -1,8 +1,8 @@
-﻿# Godot 客户端测试
+# Godot 客户端测试
 
-[文档索引](README.md) | [Índice](README.es.md)
+[← 文档索引](../README.md#文档索引)
 
-无头单元测试、`api_test` 场景与发布前 Godot 相关检查。后端 pytest / Spring JUnit 见 [StarshipBackend/docs/TESTING.md](../../StarshipBackend/docs/TESTING.md)。
+无头单元测试、`api_test` 场景与发布前 Godot 相关检查（仅本客户端仓库内路径）。
 
 ## 无头单元测试（Hazard / AttackData）
 
@@ -47,4 +47,4 @@ godot --path "Human Disaster" --headless -s res://test/unit/run_unit_tests.gd
 - [ ] 运行 `api_test.tscn`，`API_BASE_URL` 正确
 - [ ] 手测：新号进关、拾枪、受伤、存档、再登录恢复
 
-完整清单（含 FastAPI/Spring）：[StarshipBackend/docs/TESTING.md](../../StarshipBackend/docs/TESTING.md)。
+服务端自动化测试在游戏 API 部署仓库中维护，不在本目录文档范围内。

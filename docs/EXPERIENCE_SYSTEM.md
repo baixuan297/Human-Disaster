@@ -1,7 +1,7 @@
 ﻿# 角色经验与等级系统
-[文档索引](README.md) | [Índice](README.es.md)
+[← 文档索引](../README.md#文档索引)
 
-本文说明 `Stats`（`resource/stats/stats.gd`）中的**总经验**、**等级计算**、**玩家与敌人两种成长模式**、**存档与信号**，以及与 UI、战斗掉落的衔接。
+**经验 / 等级 / SYNC 突破** 的主文档（`resource/stats/stats.gd`）。
 
 ---
 
@@ -12,7 +12,7 @@
 | **玩家** | `true`（默认） | 由累计 `experience` 公式推导，并受 `max_level` 限制 | 可获得，`gain_experience` 生效 |
 | **敌人** | `false` | 仅 `fixed_combat_level`（在资源或检查器中设置） | 不获得；`gain_experience` 直接返回 `0`，`experience` 恒为 `0` |
 
-敌人应使用如 `resource/stats/enemy_stats.tres` 的配置：`level_derived_from_experience = false`，按需调整 `fixed_combat_level`。击杀敌人仍通过 **`BaseEnemy.experience_reward`** 给**玩家**的 **`player_stats`** 加经验，而不是给敌人 Stats；**`BaseEnemy`** 与敌人模块总览见 **[ENEMY_SYSTEM.md](ENEMY_SYSTEM.md)**。
+敌人应使用如 `resource/stats/enemy_stats.tres` 的配置：`level_derived_from_experience = false`，按需调整 `fixed_combat_level`。击杀奖励走 **`BaseEnemy.experience_reward`** → 玩家 **`player_stats.gain_experience`**（不给敌人 Stats 加经验）。
 
 ---
 
@@ -165,5 +165,5 @@ var gained2: float = player_stats.gain_experience(25.0)
 | `Script/enemy/BaseEnemy.gd` | 击杀奖励与等级差倍率 → `ExperienceRewards.grant` |
 | `Script/player/Player.gd` | `player_stats`、升级提示、`experience_gained` → HUD |
 | `Script/player/PlayerUIController.gd` | 合并经验飘字提示 |
-| `StarshipBackend/PSQL_DH/main.py` | `EXPERIENCE_*`、`DEFAULT_SYNC_BREAKTHROUGH_GATE_LEVELS`、`effective_level_from_raw_and_breakthroughs`、`_effective_character_level_for_genes` |
-| `StarshipBackend/PSQL_DH/tests/test_experience_level_math.py` | 等级推导快照测试 |
+| 游戏 API（服务端） | `EXPERIENCE_*`、SYNC 门闸等级、`effective_level_from_raw_and_breakthroughs` 等须与客户端 `stats.gd` 公式一致 |
+| 契约测试 | 服务端仓库中的等级推导单测；改公式时需双方同步 |

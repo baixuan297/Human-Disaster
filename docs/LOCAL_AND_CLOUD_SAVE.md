@@ -1,5 +1,5 @@
 ﻿# 本地与云端存档方案
-[文档索引](README.md) | [Índice](README.es.md)
+[← 文档索引](../README.md#文档索引)
 
 本文描述 **Godot 客户端** 与 **FastAPI `/characters/...`** 之间的存档分工、同步策略、版本号语义与后续可扩展点（服务端乐观锁等）。**实现入口**：`LocalCharacterSave.gd` + `CharacterDataManager.gd`。
 
@@ -89,11 +89,8 @@
 | `autoload/CharacterDataManager.gd` | 快照、API、定时快存、`_gather_client_blob` |
 | `autoload/GameDataManager.gd` | 静态定义磁盘缓存 `game_data_definitions_cache.enc`、离线兜底 |
 | `autoload/SaveManager.gd` | 仅设置 |
-| `StarshipBackend/PSQL_DH/main.py` | `save_character_stats`、`scene_state` 合并写入 |
+| 游戏 API `POST .../stats` | `save_character_stats` 将 `scene_state` 与属性合并写入 |
 
-更细的 API 与快照字段见 [CharacterDataManager.md](CharacterDataManager.md)；静态数据见 [GameDataManager.md](GameDataManager.md)。
-
----
 
 ## 七、游戏中「还可缓存」的数据（评估）
 
@@ -128,7 +125,7 @@
 
 ## 九、数据库与后端连接（建议）
 
-以下在 **`StarshipBackend/docs/DATABASE_SCHEMA.md`** 中多已存在表定义；缺口主要在 **FastAPI 路由与 Godot `ApiManager`** 是否暴露。
+以下能力依赖游戏 API 是否已实现对应路由；客户端侧以 `APIManager` 是否封装为准（见 [APIManager.md](APIManager.md)）。
 
 | 主题 | 是否新建表 | 建议 |
 |------|------------|------|

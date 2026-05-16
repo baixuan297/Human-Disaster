@@ -1,9 +1,9 @@
-﻿# CharacterDataManager 说明文档
-[文档索引](README.md) | [Índice](README.es.md)
+# CharacterDataManager 说明文档
+[← 文档索引](../README.md#文档索引)
 
-CharacterDataManager 是**角色数据加载/保存**的全局统一入口，负责快照/恢复（减少场景切换时的 API 调用）和存档到 API。
+CharacterDataManager 是**角色进度**加载/保存的全局入口：快照/恢复、存档到 API。
 
-**注意**：游戏存档（背包/技能/属性）由此模块负责，与 `SaveManager`（仅设置存档）不同。本地加密快存与版本号由 **`LocalCharacterSave`** 负责。详见 `docs/SaveManager.md`、`docs/LOCAL_AND_CLOUD_SAVE.md`。技能快照/API 键与 **`SkillResource.skill_name`** 的对应关系见 **[SKILL_SYSTEM.md](SKILL_SYSTEM.md)** 第 10 节。
+**边界**：`SaveManager` 只管设置档；本地快存见 [LOCAL_AND_CLOUD_SAVE.md](LOCAL_AND_CLOUD_SAVE.md)。技能 API 键与 `SkillResource.skill_name` 见 [SKILL_SYSTEM.md](SKILL_SYSTEM.md) §10。
 
 ---
 
@@ -14,8 +14,8 @@ CharacterDataManager 是**角色数据加载/保存**的全局统一入口，负
 | **脚本路径** | `autoload/CharacterDataManager.gd` |
 | **Autoload 名称** | `CharacterDataManager` |
 | **依赖** | UserManager、ApiManager、InventoryManager、SkillManager、GameDataManager |
-| **基因** | GeneManager（Autoload），见 [GENE_SYSTEM.md](GENE_SYSTEM.md) |
-| **客户端专属** | 第一/第三人称相机、`PlayerViewPaths`、场景节点层级**不**写入 stats API；持久化仍为属性、背包、技能、基因、`loadout`（武器槽）、`scene_path` / `position` / `rotation_y` 等（见 [PLAYER_CAMERA_AND_MOVEMENT.md](PLAYER_CAMERA_AND_MOVEMENT.md) §7） |
+| **基因** | GeneManager（Autoload）；字段见 [GENE_SYSTEM.md](GENE_SYSTEM.md) |
+| **客户端专属** | 相机与节点路径不写入 stats API；持久化含 `loadout`、`scene_path` / `position` / `rotation_y` 等（[PLAYER_CAMERA_AND_MOVEMENT.md](PLAYER_CAMERA_AND_MOVEMENT.md) §7） |
 
 ---
 
@@ -63,7 +63,7 @@ character_data_save_completed.emit()
 - **每次 `save_to_api` 在快照之后**：先写本地再发 API；**全部 POST 成功**后 **`mark_full_api_synced`**。
 - **手动仅本地**：`save_local_checkpoint_now()`；**待同步查询**：`has_pending_cloud_sync()`。
 
-完整策略、冲突与后续服务端 `revision` 建议见 **[LOCAL_AND_CLOUD_SAVE.md](LOCAL_AND_CLOUD_SAVE.md)**。
+本地快存策略见 [LOCAL_AND_CLOUD_SAVE.md](LOCAL_AND_CLOUD_SAVE.md)。
 
 ### 2.5 数据流图
 
@@ -215,20 +215,7 @@ var player = CharacterDataManager.get_player()
 
 ---
 
-## 八、相关文档与测试
-
-| 文档 | 说明 |
-|------|------|
-| [APIManager.md](APIManager.md) | API 接口说明 |
-| [SaveManager.md](SaveManager.md) | 存档流程（含云端） |
-| [GameDataManager.md](GameDataManager.md) | 静态数据加载 |
-| [DAMAGE_SYSTEM.md](DAMAGE_SYSTEM.md) | 伤害与 Stats 流程 |
-| [GENE_SYSTEM.md](GENE_SYSTEM.md) | 基因模块（待接入） |
-| `test/api_test.gd` | 经 APIManager 覆盖主要 API，用于连通性、与后端契约及架构联调（见 `StarshipBackend/docs/TESTING.md`） |
-
----
-
-## 九、新增场景接入步骤
+## 八、新增场景接入步骤
 
 1. 确保场景中有 Player 节点，且加入 `"Player"` 组
 2. Player._ready 末尾调用 `CharacterDataManager.restore_to_player(self)`

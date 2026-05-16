@@ -1,5 +1,5 @@
-﻿# 背包系统（Inventory）说明文档
-[文档索引](README.md) | [Índice](README.es.md)
+# 背包系统（Inventory）说明文档
+[← 文档索引](../README.md#文档索引)
 
 本文档说明项目中与 **背包 / 物品（Inventory）** 相关的全部逻辑、数据流与扩展方式。背包功能由插件 **xuanBag** 提供，通过全局单例 **InventoryManager** 与场景 **InventoryUI** 配合使用。
 
@@ -59,7 +59,7 @@ flowchart TB
 
 - **数据**：只存在于 `InventoryManager`（单例），槽位数组 `items: Array[InventoryItem]`，最大槽位数 `max_slots`（默认 60）。
 - **界面**：`InventoryUI` 只负责展示与操作，通过信号和 `InventoryManager` 的 API 读写数据，不持有备份。
-- **物品定义**：离线时由 `addons/xuanBag/data/*.json` 预载；联网后 **GameDataManager** 从 API 同步并覆盖/补充（与后端 `game_items` 表一致，源文件 `StarshipBackend/PSQL_DH/game_data/items.json`，`python seeder.py` 入库）。
+- **物品定义**：离线时由 `addons/xuanBag/data/*.json` 预载；联网后 **GameDataManager** 从 `/game-data/items` 同步并覆盖/补充（`item_id` 须与 API 一致）。
 
 ---
 
@@ -280,7 +280,7 @@ flowchart TB
 ### 9.1 添加物品（你项目中的用法）
 
 - **宝箱 / 交互**：在 `Script/player/InteractionComponent.gd` 中，玩家与 `chest` 分组物体交互时调用 **`InventoryManager.grant_standard_test_bundle()`**（实现于 `addons/xuanBag/scripts/InventoryManager.gd`），与 `game_data/items.json` v2.2.0 一致（武器 M9/MP7/X-87、弹药、药水、工具、星币等）。**勿再使用**旧版数字 ID（201–253、100–103）。
-- **扩展测试掉落**：新增或调整礼包内容时，同步修改 **`InventoryManager.grant_standard_test_bundle()`** 内的 `item_id`、后端 **`StarshipBackend/PSQL_DH/game_data/items.json`**（及本地/Seeder 若有）。
+- **扩展测试掉落**：新增或调整礼包内容时，同步修改 **`InventoryManager.grant_standard_test_bundle()`** 内的 `item_id`，并确保 `/game-data/items` 已包含对应定义。
 - **示例脚本**：`addons/xuanBag/scripts/sample.gd` 顶部有本演示用的 `item_id` 常量；测试按钮调用 `inventory.grant_standard_test_bundle()`，并连接 `item_used`（材料 / 药水 / 工具等）。
 
 ### 9.2 打开 / 关闭背包
@@ -312,7 +312,7 @@ flowchart TB
 
 ### 11.1 新增物品
 
-1. 在 **`StarshipBackend/PSQL_DH/game_data/items.json`** 中按现有 `item_id` 分段规则追加条目（`version` 可递增），并执行 `python seeder.py` 更新 PostgreSQL。
+1. 在游戏 API 侧追加物品定义并使 `/game-data/items` 返回新 `item_id`（客户端 `addons/xuanBag/data` 可作离线兜底）。
 2. 将同一批条目同步到 **`addons/xuanBag/data/`**（如 `items_addon.json` 的 `items` 数组），便于离线或未拉取 API 时本地 `ItemDatabase` 仍能解析；字段与后端一致（`name`/`description`/`icon_path`/`metadata` 等）。
 3. 游戏里通过 `InventoryManager.add_item_by_numeric_id(item_id, quantity)` 或 `add_item_by_id(str_id, quantity)` 添加。
 

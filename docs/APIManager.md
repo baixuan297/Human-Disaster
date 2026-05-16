@@ -1,5 +1,5 @@
-﻿# APIManager 说明文档
-[文档索引](README.md) | [Índice](README.es.md)
+# APIManager 说明文档
+[← 文档索引](../README.md#文档索引)
 
 APIManager 是项目中用于与后端 HTTP API 通信的全局单例（autoload 中注册为 `ApiManager`），负责发送请求、携带 JWT、超时处理与统一回调。
 
@@ -11,7 +11,7 @@ APIManager 是项目中用于与后端 HTTP API 通信的全局单例（autoload
 |----|------|
 | **脚本路径** | `autoload/APIManager.gd` |
 | **Autoload 名称** | `ApiManager`（见 `project.godot`） |
-| **API 根地址** | `API_BASE_URL = "http://127.0.0.1:8000"`（NAT 端口转发宿主机→虚拟机 8000；桥接时改为虚拟机 IP，见仓库 `StarshipBackend/docs/NETWORK_DEPLOYMENT.md`） |
+| **API 根地址** | `API_BASE_URL = "http://127.0.0.1:8000"`（联调时改为当前环境可达的游戏 API 地址：本机、局域网 IP 或端口转发后的 URL） |
 | **请求超时** | `timeout_sec = 25.0` 秒 |
 | **认证方式** | 请求头 `Authorization: Bearer <jwt_token>`，登录成功后自动保存 `jwt_token` |
 
@@ -204,7 +204,7 @@ ApiManager.save_stats(character_id, player_stats.save_to_dict(), func(success, r
 ## 九、注意事项
 
 1. **修改服务器地址**：改 `API_BASE_URL` 常量为你的后端地址。
-2. **CharacterDataManager**：角色数据加载/保存由 `CharacterDataManager` 统一封装，详见 `docs/CharacterDataManager.md`。
+2. **CharacterDataManager**：角色进度 REST 由 [CharacterDataManager.md](CharacterDataManager.md) 编排（本文件只列路径与请求体）。
 3. **JWT 持久化**：当前仅在内存中保存 `jwt_token`，进程结束即丢失；若需持久化，可在登录成功后自行写入 `user://` 或通过 SettingData/SaveManager 等保存。
 4. **线程/节点**：`HTTPRequest` 在 `_ready` 中创建并挂到 APIManager 下，回调在主线程执行，可直接操作场景树。
 

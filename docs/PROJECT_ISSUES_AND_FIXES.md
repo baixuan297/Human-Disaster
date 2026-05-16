@@ -1,5 +1,5 @@
-﻿# 工程问题与修复记录（Issue Log）
-[文档索引](README.md) | [Índice](README.es.md)
+# 工程问题与修复记录（Issue Log）
+[← 文档索引](../README.md#文档索引)
 
 本文件汇总本项目开发过程中出现的问题、原因与解决方案，便于复盘与 onboarding。  
 **维护约定**：之后每解决一类问题，请在本文件**按日期追加**一条（或一小节），包含：**现象** → **原因** → **涉及路径** → **处理要点**。
@@ -110,13 +110,13 @@
 | 项目 | 说明 |
 |------|------|
 | **结论** | `Stats.save_to_dict()` 与 `CharacterStatsSaveRequest` / `CharacterStatsResponse` / `game.character_stats` 一致；**等级不单独入库**，仅 **`experience`**，等级由客户端公式 + `max_level` 推导。 |
-| **基线** | `experience`、抗性、`loadout`、`scene_state` 等均已在 **`StarshipBackend/PSQL_DH/DesastreHuman.sql`** 中定义；部署为**空库一次性**执行该脚本，已有库升级另写增量或重建。 |
+| **基线** | `experience`、抗性、`loadout`、`scene_state` 等字段须在游戏 API 使用的 PostgreSQL 中存在；由服务端部署初始化，客户端按 [APIManager.md](APIManager.md) 契约读写。 |
 | **注意** | `game.character_stats` 列与枚举与 `models.py` 一致；不再维护 `migrations/*.sql` 分文件。 |
 | **未使用** | `game.character_progress`（含 level/experience）当前 **未** 在 `main.py` / ORM 中接入，与现 Godot 存档链路无关。 |
 
 ### 4.2 全链路对齐核对（数据库 ↔ ORM ↔ API ↔ Godot，2026-03-30）
 
-以下为**静态对照**结论：部署库需执行 **`StarshipBackend/PSQL_DH/DesastreHuman.sql`**（或确保库结构与其一致），使 `game.character_stats` 等表结构与 `models.py` 一致。
+以下为**静态对照**结论：游戏 API 数据库中的 `game.character_stats` 等表结构须与 `APIManager` / `CharacterDataManager` 使用的 JSON 字段一致。
 
 #### `game.character_stats`（属性 + loadout + scene_state JSON）
 
@@ -277,7 +277,7 @@
 
 - [ ] 全库 `docs/**/*.md` 再搜一遍 `test/`：除 `test/api_test.gd`、`test/unit/` 等**真实位于 test 目录**的引用外，一律改为实际 `Script/`、`resource/`、`autoload/` 路径。
 - [ ] 若启用后端 `game.character_progress` 或与 §4「未使用」不一致，更新 **§4**、**§4.2**、`APIManager.md`、`CharacterDataManager.md` 与迁移说明。
-- [ ] 新服务器部署后执行一次 **`StarshipBackend/PSQL_DH/DesastreHuman.sql`**（或确认库已与其一致），并在 §6 记录环境/日期（与 §4.2 部署提醒一致）。
+- [ ] 新环境部署后确认游戏 API 库表与客户端存档字段一致，并在 §6 记录环境/日期（与 §4.2 部署提醒一致）。
 - [ ] 第三人称相机 / 背包遮挡若仍有产品级问题，在 **§7.3** 或 `PLAYER_CAMERA_AND_MOVEMENT.md` 补「复现步骤 + 当前结论」。
 - [ ] 联机（Nakama）若重新立项，为 `Script/Multiplayer/` 单独写一页「现状 vs 废弃」以免与 `login_scene.gd` 混淆。
 
@@ -298,16 +298,6 @@
 
 ---
 
-## 相关文档索引
+## 模块文档
 
-| 文档 | 内容 |
-|------|------|
-| `docs/EXPERIENCE_SYSTEM.md` | 玩家/敌人双模式、经验公式、信号、API 字段关系 |
-| `docs/CharacterDataManager.md` | `player_stats`、存档与 API |
-| `docs/APIManager.md` | `save_stats` / `load_stats` 与字典字段；`scene_state` 含 `collected_pickables` |
-| **§4.2 本文** | 数据库 ↔ FastAPI ↔ Godot 对齐核对表与部署提醒 |
-| `docs/DAMAGE_SYSTEM.md` | 伤害与 `player_stats` 参与者说明 |
-| `docs/SCRIPT_LAYOUT.md` | `Script/` 目录职责（审查会话中补充） |
-| `docs/AUTOLOAD_AND_UI.md` | Autoload 列表与 SignalBus / GBMssage 等说明 |
-| **§8 本文** | 冗余与遗留清单（与代码同步迭代时可在 §6 模板追加「已删除 view_model.gd」等一行） |
-| **§9 本文** | 文档同步确认与滚动 TODO（完成后打勾并写 §6） |
+实现细节以 [../README.md](../README.md#主题--主文档权威分工) 中的「主题 → 主文档」表为准。本文件 §4.2 / §8 / §9 保留问题台账与对齐核对，不重复模块索引。

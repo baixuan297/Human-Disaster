@@ -1,5 +1,5 @@
-﻿# SaveManager 说明文档
-[文档索引](README.md) | [Índice](README.es.md)
+# SaveManager 说明文档
+[← 文档索引](../README.md#文档索引)
 
 SaveManager 是负责**设置存档**的全局单例（autoload）。**游戏存档**（背包、技能、属性）由 `CharacterDataManager` 通过 **API 云端** 保存；**本地加密快存**（防闪退、版本号）由 **`LocalCharacterSave`** 负责，不在此模块。
 
@@ -12,7 +12,7 @@ SaveManager 是负责**设置存档**的全局单例（autoload）。**游戏存
 | **脚本路径** | `autoload/SaveManager.gd` |
 | **Autoload 名称** | `SaveManager` |
 | **设置存档路径** | `user://SettingsData`（加密） |
-| **游戏存档** | 由 `CharacterDataManager` 负责，见 `docs/CharacterDataManager.md` |
+| **游戏存档** | 由 [CharacterDataManager.md](CharacterDataManager.md) 负责 |
 
 ---
 
@@ -31,8 +31,6 @@ SaveManager 是负责**设置存档**的全局单例（autoload）。**游戏存
 - **保存**：`CharacterDataManager.save_to_api()` 写入 API
 - **快照/恢复**：场景切换时 `snapshot_before_scene_change()` / `restore_to_player()`
 - **本地快存 / 版本号 / 同步策略**：[LOCAL_AND_CLOUD_SAVE.md](LOCAL_AND_CLOUD_SAVE.md)
-
-详见 `docs/CharacterDataManager.md`。
 
 ---
 
